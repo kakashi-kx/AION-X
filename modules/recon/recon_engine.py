@@ -33,32 +33,34 @@ async def run_full_recon(domain):
 
     hosts = live_hosts.get("live_hosts", [])
 
+    # Directory discovery on all hosts
     dirs = find_directories(hosts)
 
+    # HTTP status mapping
     http_map = map_http_status(hosts)
 
+    # JavaScript discovery
     js_files = collect_js_files(hosts)
 
+    # JS endpoint extraction
     js_endpoints = extract_js_endpoints(js_files.get("js_files", []))
+
     # Parameter discovery
     params = find_parameters(otx.get("urls", []))
-
-    # Directory discovery
-    dirs = find_directories(domain)
 
     # Technology detection
     tech = detect_tech(domain)
 
     return {
-    "subdomains": subdomains,
-    "live_hosts": live_hosts,
-    "http_status": http_map,
-    "wayback": wayback,
-    "otx_urls": otx,
-    "ports": ports,
-    "parameters": params,
-    "directories": dirs,
-    "technology": tech,
-    "javascript_files": js_files,
-    "js_endpoints": js_endpoints
-}
+        "subdomains": subdomains,
+        "live_hosts": live_hosts,
+        "http_status": http_map,
+        "wayback": wayback,
+        "otx_urls": otx,
+        "ports": ports,
+        "parameters": params,
+        "directories": dirs,
+        "technology": tech,
+        "javascript_files": js_files,
+        "js_endpoints": js_endpoints
+    }
