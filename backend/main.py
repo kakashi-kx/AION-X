@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from backend.scanner import run_scan
 from modules.recon.subdomain_scanner import find_subdomains
 from modules.recon.wayback_urls import get_wayback_urls
+from modules.recon.otx_urls import get_otx_urls
 
 app = FastAPI()
 
@@ -20,3 +21,7 @@ def subdomains(domain: str):
 @app.get("/wayback")
 def wayback(domain: str):
     return get_wayback_urls(domain)
+
+@app.get("/otx")
+def otx(domain: str):
+    return get_otx_urls(domain)
