@@ -28,5 +28,5 @@ def otx(domain: str):
     return get_otx_urls(domain)
 
 @app.get("/recon")
-def recon(domain: str):
-    return run_full_recon(domain)
+async def recon(domain: str):
+    return await run_full_recon(domain)
