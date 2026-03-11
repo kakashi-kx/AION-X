@@ -10,24 +10,26 @@ common_dirs = [
 "config"
 ]
 
-def find_directories(domain):
+def find_directories(hosts):
 
     found = []
 
-    for d in common_dirs:
+    for host in hosts:
 
-        url = f"http://{domain}/{d}"
+        for d in common_dirs:
 
-        try:
-            r = requests.get(url, timeout=3)
+            url = f"{host}/{d}"
 
-            if r.status_code < 404:
-                found.append(url)
+            try:
+                r = requests.get(url, timeout=3)
 
-        except:
-            pass
+                if r.status_code in [200,301,302,403]:
+                    found.append(url)
+
+            except:
+                pass
 
     return {
-        "directories_found": found,
-        "total": len(found)
+        "total": len(found),
+        "directories_found": found
     }
