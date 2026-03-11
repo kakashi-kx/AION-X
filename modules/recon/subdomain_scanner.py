@@ -1,31 +1,51 @@
 import requests
 
 def find_subdomains(domain):
-    subdomains = set()
 
+    results = set()
+
+    # Source 1 — crt.sh
     try:
         url = f"https://crt.sh/?q=%25.{domain}&output=json"
+        r = requests.get(url, timeout=15)
 
-        headers = {
-            "User-Agent": "AION-X Recon Engine"
-        }
+        for entry in r.json():
+            name = entry["name_value"]
+            for sub in name.split("\n"):
+                if domain in sub:
+                    results.add(sub.strip())
 
-        response = requests.get(url, headers=headers, timeout=30)
+    except:
+        pass
 
-        if response.status_code == 200:
-            data = response.json()
 
-            for entry in data:
-                name = entry["name_value"]
-                for sub in name.split("\n"):
-                    if domain in sub:
-                        subdomains.add(sub.strip())
+    # Source 2 — HackerTarget
+    try:
+        url = f"https://api.hackertarget.com/hostsearch/?q={domain}"
+        r = requests.get(url, timeout=10)
 
-    except Exception as e:
-        return {"error": str(e)}
+        for line in r.text.splitlines():
+            sub = line.split(",")[0]
+            results.add(sub)
+
+    except:
+        pass
+
+
+    # Source 3 — ThreatCrowd
+    try:
+        url = f"https://www.threatcrowd.org/searchApi/v2/domain/report/?domain={domain}"
+        r = requests.get(url, timeout=10)
+        data = r.json()
+
+        for sub in data.get("subdomains", []):
+            results.add(sub)
+
+    except:
+        pass
+
 
     return {
-        "domain": domain,
-        "subdomains": list(subdomains),
-        "total_found": len(subdomains)
+        "total_subdomains": len(results),
+        "subdomains": list(results)
     }
