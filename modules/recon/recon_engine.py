@@ -8,6 +8,7 @@ from modules.recon.param_discovery import find_parameters
 from modules.recon.dir_finder import find_directories
 from modules.recon.tech_detector import detect_tech
 
+
 async def run_full_recon(domain):
 
     loop = asyncio.get_event_loop()
@@ -24,19 +25,25 @@ async def run_full_recon(domain):
         port_task
     )
 
+    # Live host detection
     live_hosts = check_live_hosts(subdomains.get("subdomains", []))
 
+    # Parameter discovery
     params = find_parameters(otx.get("urls", []))
-dirs = find_directories(domain)
-tech = detect_tech(domain)
 
-return {
-    "subdomains": subdomains,
-    "live_hosts": live_hosts,
-    "wayback": wayback,
-    "otx_urls": otx,
-    "ports": ports,
-    "parameters": params,
-    "directories": dirs,
-    "technology": tech
-}
+    # Directory discovery
+    dirs = find_directories(domain)
+
+    # Technology detection
+    tech = detect_tech(domain)
+
+    return {
+        "subdomains": subdomains,
+        "live_hosts": live_hosts,
+        "wayback": wayback,
+        "otx_urls": otx,
+        "ports": ports,
+        "parameters": params,
+        "directories": dirs,
+        "technology": tech
+    }
