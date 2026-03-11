@@ -1,29 +1,25 @@
 import requests
-import time
 
 def get_wayback_urls(domain):
-    api = f"https://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey&limit=50"
+    try:
+        api = f"https://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey&limit=20"
 
-    for attempt in range(3):  # retry 3 times
-        try:
-            response = requests.get(api, timeout=8)
+        r = requests.get(api, timeout=5)
 
-            if response.status_code == 200:
-                data = response.json()
+        if r.status_code != 200:
+            return {"message": "Wayback API not responding right now"}
 
-                urls = []
-                for entry in data[1:]:
-                    urls.append(entry[0])
+        data = r.json()
+        urls = [entry[0] for entry in data[1:]]
 
-                return {
-                    "domain": domain,
-                    "total_urls": len(urls),
-                    "urls": urls
-                }
+        return {
+            "domain": domain,
+            "total_urls": len(urls),
+            "urls": urls
+        }
 
-        except requests.exceptions.Timeout:
-            time.sleep(2)
-
-    return {
-        "error": "Wayback request timed out after multiple attempts"
-    }
+    except Exception:
+        return {
+            "message": "Wayback service slow or unreachable",
+            "suggestion": "try again later"
+        }
