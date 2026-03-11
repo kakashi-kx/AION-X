@@ -10,6 +10,8 @@ from modules.recon.tech_detector import detect_tech
 from modules.recon.js_collector import collect_js_files
 from modules.recon.js_endpoint_extractor import extract_js_endpoints
 from modules.recon.http_mapper import map_http_status
+from modules.analysis.attack_surface import build_attack_surface
+from modules.vuln.vuln_engine import run_vulnerability_scan
 
 
 async def run_full_recon(domain):
@@ -51,6 +53,14 @@ async def run_full_recon(domain):
     # Technology detection
     tech = detect_tech(domain)
 
+    surface = build_attack_surface({
+    "wayback": wayback,
+    "otx_urls": otx,
+    "js_endpoints": js_endpoints,
+    "parameters": params
+})
+
+vulns = run_vulnerability_scan(surface)
     return {
         "subdomains": subdomains,
         "live_hosts": live_hosts,
@@ -63,4 +73,6 @@ async def run_full_recon(domain):
         "technology": tech,
         "javascript_files": js_files,
         "js_endpoints": js_endpoints
+        "attack_surface": surface,
+        "vulnerabilities": vulns
     }
