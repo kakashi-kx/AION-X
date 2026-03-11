@@ -3,6 +3,7 @@ from modules.recon.subdomain_scanner import find_subdomains
 from modules.recon.wayback_urls import get_wayback_urls
 from modules.recon.otx_urls import get_otx_urls
 from backend.scanner import run_scan
+from modules.recon.live_hosts import check_live_hosts
 
 async def run_full_recon(domain):
 
@@ -20,8 +21,11 @@ async def run_full_recon(domain):
         port_task
     )
 
+    live_hosts = check_live_hosts(subdomains.get("subdomains", []))
+
     return {
         "subdomains": subdomains,
+        "live_hosts": live_hosts,
         "wayback": wayback,
         "otx_urls": otx,
         "ports": ports
