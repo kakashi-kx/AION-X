@@ -1,34 +1,28 @@
+import asyncio
 from modules.recon.subdomain_scanner import find_subdomains
 from modules.recon.wayback_urls import get_wayback_urls
 from modules.recon.otx_urls import get_otx_urls
 from backend.scanner import run_scan
 
-def run_full_recon(domain):
+async def run_full_recon(domain):
 
-    results = {}
+    loop = asyncio.get_event_loop()
 
-    # Subdomains
-    try:
-        results["subdomains"] = find_subdomains(domain)
-    except:
-        results["subdomains"] = "error"
+    subdomains_task = loop.run_in_executor(None, find_subdomains, domain)
+    wayback_task = loop.run_in_executor(None, get_wayback_urls, domain)
+    otx_task = loop.run_in_executor(None, get_otx_urls, domain)
+    port_task = loop.run_in_executor(None, run_scan, domain)
 
-    # Wayback URLs
-    try:
-        results["wayback"] = get_wayback_urls(domain)
-    except:
-        results["wayback"] = "error"
+    subdomains, wayback, otx, ports = await asyncio.gather(
+        subdomains_task,
+        wayback_task,
+        otx_task,
+        port_task
+    )
 
-    # OTX URLs
-    try:
-        results["otx_urls"] = get_otx_urls(domain)
-    except:
-        results["otx_urls"] = "error"
-
-    # Port scan
-    try:
-        results["ports"] = run_scan(domain)
-    except:
-        results["ports"] = "error"
-
-    return results
+    return {
+        "subdomains": subdomains,
+        "wayback": wayback,
+        "otx_urls": otx,
+        "ports": ports
+    }
