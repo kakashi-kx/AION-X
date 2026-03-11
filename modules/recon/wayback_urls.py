@@ -1,24 +1,26 @@
 import requests
 
 def get_wayback_urls(domain):
-    urls = set()
-
     try:
-        api = f"http://web.archive.org/cdx/search/cdx?url=*.{domain}/*&output=json&fl=original&collapse=urlkey"
+        api = f"https://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey&limit=50"
 
-        response = requests.get(api, timeout=30)
+        response = requests.get(api, timeout=10)
 
-        if response.status_code == 200:
-            data = response.json()
+        if response.status_code != 200:
+            return {"error": "Wayback API error"}
 
-            for entry in data[1:]:
-                urls.add(entry[0])
+        data = response.json()
+
+        urls = []
+
+        for entry in data[1:]:
+            urls.append(entry[0])
+
+        return {
+            "domain": domain,
+            "total_urls": len(urls),
+            "urls": urls
+        }
 
     except Exception as e:
         return {"error": str(e)}
-
-    return {
-        "domain": domain,
-        "urls": list(urls),
-        "total_urls": len(urls)
-    }
