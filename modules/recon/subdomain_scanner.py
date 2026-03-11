@@ -5,7 +5,12 @@ def find_subdomains(domain):
 
     try:
         url = f"https://crt.sh/?q=%25.{domain}&output=json"
-        response = requests.get(url, timeout=30)
+
+        headers = {
+            "User-Agent": "AION-X Recon Engine"
+        }
+
+        response = requests.get(url, headers=headers, timeout=30)
 
         if response.status_code == 200:
             data = response.json()
