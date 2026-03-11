@@ -32,10 +32,9 @@ async def run_full_recon(domain):
 
     # Live host detection
     live_hosts = check_live_hosts(subdomains.get("subdomains", []))
-
     hosts = live_hosts.get("live_hosts", [])
 
-    # Directory discovery on all hosts
+    # Directory discovery
     dirs = find_directories(hosts)
 
     # HTTP status mapping
@@ -53,14 +52,17 @@ async def run_full_recon(domain):
     # Technology detection
     tech = detect_tech(domain)
 
+    # Attack surface builder
     surface = build_attack_surface({
-    "wayback": wayback,
-    "otx_urls": otx,
-    "js_endpoints": js_endpoints,
-    "parameters": params
-})
+        "wayback": wayback,
+        "otx_urls": otx,
+        "js_endpoints": js_endpoints,
+        "parameters": params
+    })
 
-vulns = run_vulnerability_scan(surface)
+    # Vulnerability scan
+    vulns = run_vulnerability_scan(surface)
+
     return {
         "subdomains": subdomains,
         "live_hosts": live_hosts,
@@ -72,7 +74,7 @@ vulns = run_vulnerability_scan(surface)
         "directories": dirs,
         "technology": tech,
         "javascript_files": js_files,
-        "js_endpoints": js_endpoints
+        "js_endpoints": js_endpoints,
         "attack_surface": surface,
         "vulnerabilities": vulns
     }
