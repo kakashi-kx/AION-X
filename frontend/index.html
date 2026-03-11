@@ -2,84 +2,48 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AION-X Web Interface</title>
+    <title>AION-X GUI</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #1e1e1e; color: #f0f0f0; margin: 20px; }
-        input, button { padding: 10px; margin: 5px; font-size: 16px; }
-        button { cursor: pointer; }
-        #results { margin-top: 20px; white-space: pre-wrap; background: #2e2e2e; padding: 15px; border-radius: 8px; }
-        h2 { margin-top: 20px; color: #4caf50; }
-        .vuln { color: #ff5555; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1e1e1e; color: #f0f0f0; }
+        h1 { color: #ff5555; }
+        input, button { padding: 10px; font-size: 16px; margin: 5px 0; }
+        button { cursor: pointer; background: #ff5555; border: none; color: #fff; }
+        button:hover { background: #ff7777; }
+        pre { background: #2e2e2e; padding: 15px; overflow-x: auto; }
+        .loader { display: none; border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #ff5555; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px 0; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <h1>AION-X Web Interface</h1>
-
-    <input type="text" id="domain" placeholder="Enter domain e.g. example.com">
-    <button onclick="runFullScan()">Run Full Scan</button>
-    <button onclick="runFastScan()">Run Fast Scan</button>
-
-    <div id="results"></div>
+    <h1>AION-X Recon GUI</h1>
+    <input type="text" id="domainInput" placeholder="Enter domain, e.g., example.com">
+    <button onclick="runRecon()">Run Full Recon</button>
+    <div class="loader" id="loader"></div>
+    <h2>Results:</h2>
+    <pre id="output"></pre>
 
     <script>
-        const resultsDiv = document.getElementById("results");
+        async function runRecon() {
+            const domain = document.getElementById('domainInput').value.trim();
+            if (!domain) return alert("Please enter a domain!");
+            
+            const output = document.getElementById('output');
+            const loader = document.getElementById('loader');
+            output.textContent = '';
+            loader.style.display = 'inline-block';
 
-        async function runFullScan() {
-            const domain = document.getElementById("domain").value;
-            if(!domain){ alert("Enter a domain"); return; }
-            resultsDiv.textContent = "[+] Running full scan...";
             try {
-                const res = await fetch(`/recon?domain=${domain}`);
-                const data = await res.json();
-                displayResults(data, "Full Scan Results");
-            } catch(err) {
-                resultsDiv.textContent = "Error: " + err;
+                const response = await fetch(`http://127.0.0.1:8000/recon?domain=${domain}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+
+                // Pretty print JSON
+                output.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                output.textContent = `Error: ${err}`;
+            } finally {
+                loader.style.display = 'none';
             }
-        }
-
-        async function runFastScan() {
-            const domain = document.getElementById("domain").value;
-            if(!domain){ alert("Enter a domain"); return; }
-            resultsDiv.textContent = "[+] Running fast scan...";
-            try {
-                const res = await fetch(`/fast_scan?domain=${domain}`);
-                const data = await res.json();
-                displayResults(data, "Fast Scan Results");
-            } catch(err) {
-                resultsDiv.textContent = "Error: " + err;
-            }
-        }
-
-        function displayResults(data, title) {
-            let output = `===== ${title} =====\n\n`;
-
-            if(data.subdomains){
-                output += `Subdomains found: ${data.subdomains.subdomains.length || 0}\n`;
-                output += `Live hosts: ${data.live_hosts.live_hosts.length || 0}\n`;
-                output += `Directories: ${data.directories ? data.directories.length : 0}\n`;
-                output += `JS Endpoints: ${data.js_endpoints ? data.js_endpoints.length : 0}\n`;
-                output += `Parameters: ${data.parameters ? data.parameters.length : 0}\n`;
-                output += `Technology: ${data.technology || "N/A"}\n\n`;
-            }
-
-            if(data.attack_surface){
-                output += "===== Attack Surface =====\n";
-                output += JSON.stringify(data.attack_surface, null, 2) + "\n\n";
-            }
-
-            if(data.vulnerabilities){
-                output += "===== Vulnerabilities =====\n";
-                for(const [vtype, vlist] of Object.entries(data.vulnerabilities)){
-                    output += `${vtype.toUpperCase()}: ${vlist.length} issue(s)\n`;
-                    vlist.forEach(v => {
-                        const line = v.url || v.endpoint || v.file || "N/A";
-                        const score = v.score || "N/A";
-                        output += ` - ${line} (score: ${score})\n`;
-                    });
-                }
-            }
-
-            resultsDiv.textContent = output;
         }
     </script>
 </body>
