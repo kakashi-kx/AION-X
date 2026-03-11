@@ -9,7 +9,5 @@ def home():
 
 @app.get("/scan")
 def scan(target: str):
-
     result = run_scan(target)
-
     return result
