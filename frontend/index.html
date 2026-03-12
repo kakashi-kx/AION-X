@@ -3,103 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AION-X - AI Penetration Testing Platform</title>
+    <title>AION-X 3.0 - AI Offensive Security Workbench</title>
     <link rel="stylesheet" href="styles.css">
     <!-- Add Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Add Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add SweetAlert2 for beautiful notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Add Anime.js for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
 <body>
     <div class="container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <h1>AION-X</h1>
-                <span class="version">v0.1</span>
+                <h1>AION<span class="accent">-X</span></h1>
+                <div class="version-badge">v3.0</div>
+                <div class="tagline">AI Offensive Security Workbench</div>
+                <div class="developer">by <span class="highlight">kakashi-kx</span></div>
             </div>
+            
+            <div class="ai-status">
+                <div class="status-indicator online"></div>
+                <span>AI Engine: <strong>Online</strong></span>
+            </div>
+            
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-page="dashboard">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                    <span class="badge">live</span>
                 </a>
                 <a href="#" class="nav-item" data-page="recon">
-                    <i class="fas fa-search"></i> Reconnaissance
+                    <i class="fas fa-search"></i>
+                    <span>Reconnaissance</span>
+                    <span class="badge">pro</span>
                 </a>
-                <a href="#" class="nav-item" data-page="scan">
-                    <i class="fas fa-shield-alt"></i> Vulnerability Scan
+                <a href="#" class="nav-item" data-page="ai-scan">
+                    <i class="fas fa-robot"></i>
+                    <span>AI BugReaper</span>
+                    <span class="badge new">new</span>
                 </a>
-                <a href="#" class="nav-item" data-page="cve">
-                    <i class="fas fa-bug"></i> CVE Intelligence
+                <a href="#" class="nav-item" data-page="api-scan">
+                    <i class="fas fa-cloud"></i>
+                    <span>API Security</span>
+                    <span class="badge new">new</span>
+                </a>
+                <a href="#" class="nav-item" data-page="cicd-scan">
+                    <i class="fas fa-code-branch"></i>
+                    <span>CI/CD Scanner</span>
+                    <span class="badge new">new</span>
                 </a>
                 <a href="#" class="nav-item" data-page="reports">
-                    <i class="fas fa-file-alt"></i> Reports
+                    <i class="fas fa-file-alt"></i>
+                    <span>AI Reports</span>
+                    <span class="badge">pro</span>
                 </a>
-                <a href="#" class="nav-item" data-page="settings">
-                    <i class="fas fa-cog"></i> Settings
+                <a href="#" class="nav-item" data-page="bugbounty">
+                    <i class="fas fa-bug"></i>
+                    <span>Bug Bounty</span>
+                    <span class="badge new">new</span>
                 </a>
             </nav>
+            
+            <div class="sidebar-footer">
+                <div class="stats-mini">
+                    <div class="stat">
+                        <i class="fas fa-shield-alt"></i>
+                        <span id="total-scans-mini">0</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="total-vulns-mini">0</span>
+                    </div>
+                </div>
+                <div class="credits">
+                    <i class="fas fa-crown"></i> Developed by <strong>kakashi-kx</strong>
+                </div>
+            </div>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
             <!-- Top Bar -->
             <header class="top-bar">
-                <h2 id="page-title">Dashboard</h2>
+                <div class="page-title-wrapper">
+                    <h2 id="page-title">Dashboard</h2>
+                    <div class="ai-insight-badge">
+                        <i class="fas fa-brain"></i> AI-Powered
+                    </div>
+                </div>
                 <div class="user-info">
-                    <span class="status-badge">Online</span>
-                    <i class="fas fa-user-circle"></i>
+                    <div class="notification-badge">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge">3</span>
+                    </div>
+                    <div class="user-profile">
+                        <i class="fas fa-user-circle"></i>
+                        <span>kakashi-kx</span>
+                    </div>
                 </div>
             </header>
 
             <!-- Dashboard Page -->
             <div id="dashboard-page" class="page active">
+                <div class="welcome-banner">
+                    <h3>Welcome back, <span class="highlight">kakashi-kx</span></h3>
+                    <p>Your AI-powered security workbench is ready. New features available!</p>
+                </div>
+                
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <i class="fas fa-target"></i>
+                        <div class="stat-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
                         <div class="stat-info">
                             <h3>Total Scans</h3>
-                            <span id="total-scans">0</span>
+                            <span class="stat-value" id="total-scans">0</span>
+                            <span class="stat-trend positive">+12%</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-exclamation-triangle"></i>
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
                         <div class="stat-info">
                             <h3>Vulnerabilities</h3>
-                            <span id="total-vulns">0</span>
+                            <span class="stat-value" id="total-vulns">0</span>
+                            <span class="stat-trend negative">+8</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-shield-alt"></i>
+                        <div class="stat-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
                         <div class="stat-info">
                             <h3>Hosts Scanned</h3>
-                            <span id="total-hosts">0</span>
+                            <span class="stat-value" id="total-hosts">0</span>
+                            <span class="stat-trend positive">+5</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-clock"></i>
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
                         <div class="stat-info">
                             <h3>Active Scans</h3>
-                            <span id="active-scans">0</span>
+                            <span class="stat-value" id="active-scans">0</span>
+                            <span class="stat-trend">2 pending</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="charts-row">
                     <div class="chart-container">
+                        <div class="chart-header">
+                            <h4>Vulnerability Distribution</h4>
+                            <i class="fas fa-info-circle tooltip" title="AI-analyzed risk levels"></i>
+                        </div>
                         <canvas id="vuln-chart"></canvas>
                     </div>
                     <div class="chart-container">
+                        <div class="chart-header">
+                            <h4>Scan Activity</h4>
+                            <i class="fas fa-chart-line"></i>
+                        </div>
                         <canvas id="scan-timeline"></canvas>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h4>Recent AI Insights</h4>
+                    <div class="activity-list" id="recent-insights">
+                        <div class="activity-item">
+                            <i class="fas fa-robot"></i>
+                            <div class="activity-content">
+                                <strong>AI Analysis Complete</strong>
+                                <p>Found 23 potential vulnerabilities in last scan</p>
+                                <small>2 minutes ago</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Reconnaissance Page -->
             <div id="recon-page" class="page">
+                <div class="page-header">
+                    <h3>Reconnaissance Engine</h3>
+                    <p>Discover assets, subdomains, and attack surface</p>
+                </div>
+                
                 <div class="scan-form">
-                    <h3>Target Reconnaissance</h3>
                     <div class="input-group">
+                        <i class="fas fa-globe input-icon"></i>
                         <input type="text" id="recon-target" placeholder="Enter target domain (e.g., example.com)">
+                        <select id="recon-module">
+                            <option value="full">Full Recon</option>
+                            <option value="subdomains">Subdomains Only</option>
+                            <option value="urls">URLs Only</option>
+                        </select>
                         <button onclick="startRecon()" class="btn-primary">
                             <i class="fas fa-play"></i> Start Recon
                         </button>
@@ -108,16 +213,31 @@
                 
                 <div class="results-tabs">
                     <div class="tab-buttons">
-                        <button class="tab-btn active" onclick="showTab('subdomains')">Subdomains</button>
-                        <button class="tab-btn" onclick="showTab('urls')">URLs</button>
-                        <button class="tab-btn" onclick="showTab('parameters')">Parameters</button>
-                        <button class="tab-btn" onclick="showTab('directories')">Directories</button>
-                        <button class="tab-btn" onclick="showTab('tech')">Technologies</button>
+                        <button class="tab-btn active" onclick="showTab('subdomains')">
+                            <i class="fas fa-globe"></i> Subdomains
+                            <span class="count-badge" id="subdomain-count">0</span>
+                        </button>
+                        <button class="tab-btn" onclick="showTab('urls')">
+                            <i class="fas fa-link"></i> URLs
+                            <span class="count-badge" id="urls-count">0</span>
+                        </button>
+                        <button class="tab-btn" onclick="showTab('parameters')">
+                            <i class="fas fa-code"></i> Parameters
+                            <span class="count-badge" id="parameters-count">0</span>
+                        </button>
+                        <button class="tab-btn" onclick="showTab('directories')">
+                            <i class="fas fa-folder"></i> Directories
+                            <span class="count-badge" id="directories-count">0</span>
+                        </button>
+                        <button class="tab-btn" onclick="showTab('tech')">
+                            <i class="fas fa-cube"></i> Technologies
+                            <span class="count-badge" id="tech-count">0</span>
+                        </button>
                     </div>
                     
                     <div id="subdomains-tab" class="tab-content active">
                         <div class="results-header">
-                            <span>Found <span id="subdomain-count">0</span> subdomains</span>
+                            <span><i class="fas fa-info-circle"></i> Found <span id="subdomain-count-display">0</span> subdomains</span>
                             <button onclick="exportResults('subdomains')" class="btn-secondary">
                                 <i class="fas fa-download"></i> Export
                             </button>
@@ -127,63 +247,259 @@
                     
                     <div id="urls-tab" class="tab-content">
                         <div class="results-header">
-                            <span>Found <span id="urls-count">0</span> URLs</span>
+                            <span><i class="fas fa-info-circle"></i> Found <span id="urls-count-display">0</span> URLs</span>
+                            <button onclick="exportResults('urls')" class="btn-secondary">
+                                <i class="fas fa-download"></i> Export
+                            </button>
                         </div>
                         <div class="results-list" id="urls-list"></div>
                     </div>
                     
                     <div id="parameters-tab" class="tab-content">
                         <div class="results-header">
-                            <span>Found <span id="parameters-count">0</span> parameters</span>
+                            <span><i class="fas fa-info-circle"></i> Found <span id="parameters-count-display">0</span> parameters</span>
+                            <button onclick="exportResults('parameters')" class="btn-secondary">
+                                <i class="fas fa-download"></i> Export
+                            </button>
                         </div>
                         <div class="results-list" id="parameters-list"></div>
                     </div>
                     
                     <div id="directories-tab" class="tab-content">
                         <div class="results-header">
-                            <span>Found <span id="directories-count">0</span> directories</span>
+                            <span><i class="fas fa-info-circle"></i> Found <span id="directories-count-display">0</span> directories</span>
+                            <button onclick="exportResults('directories')" class="btn-secondary">
+                                <i class="fas fa-download"></i> Export
+                            </button>
                         </div>
                         <div class="results-list" id="directories-list"></div>
                     </div>
                     
                     <div id="tech-tab" class="tab-content">
                         <div class="results-header">
-                            <span>Detected <span id="tech-count">0</span> technologies</span>
+                            <span><i class="fas fa-info-circle"></i> Detected <span id="tech-count-display">0</span> technologies</span>
+                            <button onclick="exportResults('technologies')" class="btn-secondary">
+                                <i class="fas fa-download"></i> Export
+                            </button>
                         </div>
                         <div class="results-list" id="tech-list"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Vulnerability Scan Page -->
-            <div id="scan-page" class="page">
+            <!-- AI BugReaper Page -->
+            <div id="ai-scan-page" class="page">
+                <div class="page-header">
+                    <h3><i class="fas fa-robot"></i> AI BugReaper Framework</h3>
+                    <p>AI-powered vulnerability discovery with 18 exploit classes</p>
+                </div>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <i class="fas fa-dragon"></i>
+                        <h4>SQL Injection</h4>
+                        <span class="ai-badge">AI Enhanced</span>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-code"></i>
+                        <h4>XSS Detection</h4>
+                        <span class="ai-badge">Pattern Match</span>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-key"></i>
+                        <h4>IDOR/BOLA</h4>
+                        <span class="ai-badge">Behavioral</span>
+                    </div>
+                    <div class="feature-card">
+                        <i class="fas fa-network-wired"></i>
+                        <h4>SSRF</h4>
+                        <span class="ai-badge">Advanced</span>
+                    </div>
+                </div>
+                
                 <div class="scan-form">
-                    <h3>Vulnerability Scanner</h3>
                     <div class="input-group">
-                        <input type="text" id="scan-target" placeholder="Enter target URL/IP">
-                        <select id="scan-type">
+                        <i class="fas fa-bug input-icon"></i>
+                        <input type="text" id="ai-target" placeholder="Enter target for AI analysis">
+                        <select id="ai-depth">
                             <option value="quick">Quick Scan</option>
-                            <option value="full">Full Scan</option>
-                            <option value="custom">Custom Scan</option>
+                            <option value="standard" selected>Standard (Recommended)</option>
+                            <option value="deep">Deep Analysis</option>
                         </select>
-                        <button onclick="startVulnScan()" class="btn-primary">
-                            <i class="fas fa-play"></i> Start Scan
+                        <button onclick="startAIScan()" class="btn-primary glow">
+                            <i class="fas fa-robot"></i> Launch AI Scanner
                         </button>
                     </div>
                 </div>
                 
-                <div class="scan-progress" id="scan-progress" style="display: none;">
-                    <h4>Scan Progress</h4>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                <div class="ai-progress" id="ai-progress" style="display: none;">
+                    <div class="progress-header">
+                        <span>AI Analysis Progress</span>
+                        <span id="ai-status">Initializing...</span>
                     </div>
-                    <p id="scan-status">Initializing...</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="ai-progress-fill" style="width: 0%"></div>
+                    </div>
                 </div>
                 
-                <div class="vuln-results" id="vuln-results"></div>
+                <div class="ai-results" id="ai-results"></div>
+            </div>
+
+            <!-- API Security Page -->
+            <div id="api-scan-page" class="page">
+                <div class="page-header">
+                    <h3><i class="fas fa-cloud"></i> OWASP API Security Scanner</h3>
+                    <p>Test APIs against OWASP Top 10 vulnerabilities</p>
+                </div>
+                
+                <div class="api-stats">
+                    <div class="api-stat">
+                        <span class="label">API1:2026</span>
+                        <span class="value">BOLA</span>
+                    </div>
+                    <div class="api-stat">
+                        <span class="label">API2:2026</span>
+                        <span class="value">Broken Auth</span>
+                    </div>
+                    <div class="api-stat">
+                        <span class="label">API3:2026</span>
+                        <span class="value">BOPLA</span>
+                    </div>
+                    <div class="api-stat">
+                        <span class="label">API8:2026</span>
+                        <span class="value">Injection</span>
+                    </div>
+                </div>
+                
+                <div class="scan-form">
+                    <div class="input-group">
+                        <i class="fas fa-cloud input-icon"></i>
+                        <input type="text" id="api-target" placeholder="API URL (e.g., api.target.com)">
+                        <input type="text" id="api-base" placeholder="/api/v1" value="/api">
+                        <button onclick="startAPIScan()" class="btn-primary">
+                            <i class="fas fa-shield"></i> Scan API
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="api-endpoints" id="api-endpoints"></div>
+                <div class="api-results" id="api-results"></div>
+            </div>
+
+            <!-- CI/CD Scanner Page -->
+            <div id="cicd-scan-page" class="page">
+                <div class="page-header">
+                    <h3><i class="fas fa-code-branch"></i> CI/CD Pipeline Security</h3>
+                    <p>Scan GitHub Actions, Dockerfiles, and K8s manifests</p>
+                </div>
+                
+                <div class="scan-form">
+                    <div class="input-group">
+                        <i class="fas fa-github input-icon"></i>
+                        <input type="text" id="repo-url" placeholder="GitHub repository URL">
+                        <input type="text" id="repo-branch" placeholder="Branch" value="main">
+                        <button onclick="startCICDScan()" class="btn-primary">
+                            <i class="fas fa-shield"></i> Scan Pipeline
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="cicd-results" id="cicd-results"></div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="page">
+                <div class="page-header">
+                    <h3><i class="fas fa-file-alt"></i> AI Report Generator</h3>
+                    <p>Create professional security reports with AI insights</p>
+                </div>
+                
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <i class="fas fa-file-pdf"></i>
+                        <h4>PDF Report</h4>
+                        <p>Executive summary with findings</p>
+                        <button onclick="generateReport('pdf')" class="btn-secondary">
+                            Generate PDF
+                        </button>
+                    </div>
+                    <div class="report-card">
+                        <i class="fas fa-file-code"></i>
+                        <h4>HTML Report</h4>
+                        <p>Interactive web report</p>
+                        <button onclick="generateReport('html')" class="btn-secondary">
+                            Generate HTML
+                        </button>
+                    </div>
+                    <div class="report-card">
+                        <i class="fas fa-chart-bar"></i>
+                        <h4>JSON Export</h4>
+                        <p>Raw data for analysis</p>
+                        <button onclick="exportJSON()" class="btn-secondary">
+                            Export JSON
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="recent-reports">
+                    <h4>Recent Scans</h4>
+                    <div class="scan-history" id="scan-history"></div>
+                </div>
+            </div>
+
+            <!-- Bug Bounty Page -->
+            <div id="bugbounty-page" class="page">
+                <div class="page-header">
+                    <h3><i class="fas fa-bug"></i> Bug Bounty Integration</h3>
+                    <p>Submit findings to HackerOne, Bugcrowd, and Intigriti</p>
+                </div>
+                
+                <div class="platform-cards">
+                    <div class="platform-card hackerone">
+                        <i class="fab fa-hackerone"></i>
+                        <h4>HackerOne</h4>
+                        <button onclick="submitToPlatform('hackerone')" class="btn-platform">
+                            <i class="fas fa-paper-plane"></i> Submit
+                        </button>
+                    </div>
+                    <div class="platform-card bugcrowd">
+                        <i class="fas fa-bug"></i>
+                        <h4>Bugcrowd</h4>
+                        <button onclick="submitToPlatform('bugcrowd')" class="btn-platform">
+                            <i class="fas fa-paper-plane"></i> Submit
+                        </button>
+                    </div>
+                    <div class="platform-card intigriti">
+                        <i class="fas fa-shield"></i>
+                        <h4>Intigriti</h4>
+                        <button onclick="submitToPlatform('intigriti')" class="btn-platform">
+                            <i class="fas fa-paper-plane"></i> Submit
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="submission-form">
+                    <h4>Manual Submission</h4>
+                    <textarea id="vuln-desc" placeholder="Vulnerability description..."></textarea>
+                    <input type="text" id="vuln-severity" placeholder="Severity (Critical/High/Medium/Low)">
+                    <button onclick="submitManual()" class="btn-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Finding
+                    </button>
+                </div>
             </div>
         </main>
     </div>
+    
+    <!-- Floating AI Assistant -->
+    <div class="ai-assistant" id="ai-assistant">
+        <div class="assistant-icon">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="assistant-tooltip">
+            AI Assistant Ready
+        </div>
+    </div>
+    
     <script src="app.js"></script>
 </body>
 </html>
