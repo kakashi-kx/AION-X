@@ -15,7 +15,7 @@ import uuid
 import json
 from datetime import datetime
 
-# Try to import modules with error handling
+# Import your modules
 try:
     from modules.recon.recon_engine import run_full_recon
     from modules.recon.subdomain_scanner import find_subdomains
@@ -26,30 +26,60 @@ try:
     from modules.recon.dir_finder import find_directories
     from modules.recon.tech_detector import detect_tech
     MODULES_LOADED = True
+    print("✅ All modules loaded successfully")
 except ImportError as e:
-    print(f"Warning: Some modules could not be imported: {e}")
-    print(f"Current Python path: {sys.path}")
+    print(f"⚠️ Warning: Some modules could not be imported: {e}")
     MODULES_LOADED = False
     
     # Create placeholder functions for development
-    async def find_subdomains(target): return ["sub1.example.com", "sub2.example.com"]
-    async def get_wayback_urls(target): return ["https://example.com/page1", "https://example.com/page2"]
-    async def get_otx_urls(target): return []
-    async def check_live_hosts(targets): return targets
-    async def find_parameters(target): return ["id", "page", "user"]
-    async def find_directories(target): return ["/admin", "/api", "/backup"]
-    async def detect_tech(target): return ["nginx", "python", "react"]
+    async def find_subdomains(target): 
+        return [f"www.{target}", f"mail.{target}", f"api.{target}"]
+    async def get_wayback_urls(target): 
+        return [f"https://{target}/page1", f"https://{target}/page2"]
+    async def get_otx_urls(target): 
+        return [f"https://{target}/otx1", f"https://{target}/otx2"]
+    async def check_live_hosts(targets): 
+        return targets
+    async def find_parameters(target): 
+        return ["id", "page", "user", "admin"]
+    async def find_directories(target): 
+        return ["/admin", "/api", "/backup"]
+    async def detect_tech(target): 
+        return ["nginx", "python", "react"]
 
 app = FastAPI(title="AION-X API", version="0.1.0")
 
-# Configure CORS
+# Configure CORS - FIXED VERSION
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://0.0.0.0:3000",
+        "http://0.0.0.0:8000",
+        "*"  # Allow all origins for development
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600
 )
+
+# Add OPTIONS handler for preflight requests
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "600"
+        }
+    )
 
 # Data models
 class ScanRequest(BaseModel):
@@ -78,7 +108,7 @@ async def root():
         "message": "AION-X API is running",
         "version": "0.1.0",
         "modules_loaded": MODULES_LOADED,
-        "python_path": sys.path
+        "status": "ready"
     }
 
 @app.get("/stats")
@@ -100,8 +130,9 @@ async def get_stats():
 @app.post("/recon")
 async def run_recon(request: ReconRequest):
     """Run reconnaissance on target"""
+    print(f"=== Recon request received for target: {request.target} ===")
+    
     try:
-        # Run recon modules
         results = {
             "target": request.target,
             "timestamp": datetime.now().isoformat(),
@@ -118,17 +149,23 @@ async def run_recon(request: ReconRequest):
         scan_id = str(uuid.uuid4())
         scan_results[scan_id] = results
         
+        print(f"=== Recon completed for {request.target} ===")
         return JSONResponse(content=results)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"!!! Recon failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
 
 @app.post("/scan")
 async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     """Start a vulnerability scan"""
     scan_id = str(uuid.uuid4())
     
-    # Initialize scan status
     active_scans[scan_id] = {
         "status": "starting",
         "progress": 0,
@@ -136,7 +173,6 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         "scan_type": request.scan_type
     }
     
-    # Run scan in background
     background_tasks.add_task(run_vulnerability_scan, scan_id, request)
     
     return {"scan_id": scan_id, "status": "started"}
@@ -182,7 +218,6 @@ async def export_results(scan_type: str):
 async def run_vulnerability_scan(scan_id: str, request: ScanRequest):
     """Run vulnerability scan in background"""
     try:
-        # Update status
         active_scans[scan_id]["status"] = "scanning"
         
         import asyncio
@@ -192,7 +227,6 @@ async def run_vulnerability_scan(scan_id: str, request: ScanRequest):
             active_scans[scan_id]["progress"] = i * 10
             active_scans[scan_id]["status"] = f"Scanning... {i*10}%"
         
-        # Simulate findings
         vulnerabilities = [
             {
                 "name": "SQL Injection",
@@ -212,7 +246,6 @@ async def run_vulnerability_scan(scan_id: str, request: ScanRequest):
             }
         ]
         
-        # Store results
         scan_results[scan_id] = {
             "target": request.target,
             "scan_type": request.scan_type,
@@ -220,7 +253,6 @@ async def run_vulnerability_scan(scan_id: str, request: ScanRequest):
             "vulnerabilities": vulnerabilities
         }
         
-        # Remove from active scans
         del active_scans[scan_id]
         
     except Exception as e:
