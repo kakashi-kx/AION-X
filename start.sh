@@ -4,7 +4,7 @@ echo "🚀 Starting AION-X..."
 # Kill any existing processes
 pkill -f uvicorn
 pkill -f cors-frontend.py
-sleep 1
+sleep 2
 
 # Start backend
 cd /home/kakashi/AION-X
@@ -24,8 +24,10 @@ echo "📝 Press Ctrl+C to stop both"
 
 # Function to kill processes on exit
 cleanup() {
-    echo "\n👋 Shutting down AION-X..."
+    echo -e "\n👋 Shutting down AION-X..."
     kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    echo "✅ Shutdown complete"
     exit
 }
 
