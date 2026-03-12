@@ -2,49 +2,188 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AION-X GUI</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #1e1e1e; color: #f0f0f0; }
-        h1 { color: #ff5555; }
-        input, button { padding: 10px; font-size: 16px; margin: 5px 0; }
-        button { cursor: pointer; background: #ff5555; border: none; color: #fff; }
-        button:hover { background: #ff7777; }
-        pre { background: #2e2e2e; padding: 15px; overflow-x: auto; }
-        .loader { display: none; border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #ff5555; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px 0; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AION-X - AI Penetration Testing Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Add Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <h1>AION-X Recon GUI</h1>
-    <input type="text" id="domainInput" placeholder="Enter domain, e.g., example.com">
-    <button onclick="runRecon()">Run Full Recon</button>
-    <div class="loader" id="loader"></div>
-    <h2>Results:</h2>
-    <pre id="output"></pre>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>AION-X</h1>
+                <span class="version">v0.1</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-page="recon">
+                    <i class="fas fa-search"></i> Reconnaissance
+                </a>
+                <a href="#" class="nav-item" data-page="scan">
+                    <i class="fas fa-shield-alt"></i> Vulnerability Scan
+                </a>
+                <a href="#" class="nav-item" data-page="cve">
+                    <i class="fas fa-bug"></i> CVE Intelligence
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <i class="fas fa-file-alt"></i> Reports
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </nav>
+        </aside>
 
-    <script>
-        async function runRecon() {
-            const domain = document.getElementById('domainInput').value.trim();
-            if (!domain) return alert("Please enter a domain!");
-            
-            const output = document.getElementById('output');
-            const loader = document.getElementById('loader');
-            output.textContent = '';
-            loader.style.display = 'inline-block';
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <h2 id="page-title">Dashboard</h2>
+                <div class="user-info">
+                    <span class="status-badge">Online</span>
+                    <i class="fas fa-user-circle"></i>
+                </div>
+            </header>
 
-            try {
-                const response = await fetch(`http://127.0.0.1:8000/recon?domain=${domain}`);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-target"></i>
+                        <div class="stat-info">
+                            <h3>Total Scans</h3>
+                            <span id="total-scans">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div class="stat-info">
+                            <h3>Vulnerabilities</h3>
+                            <span id="total-vulns">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-shield-alt"></i>
+                        <div class="stat-info">
+                            <h3>Hosts Scanned</h3>
+                            <span id="total-hosts">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-info">
+                            <h3>Active Scans</h3>
+                            <span id="active-scans">0</span>
+                        </div>
+                    </div>
+                </div>
 
-                // Pretty print JSON
-                output.textContent = JSON.stringify(data, null, 2);
-            } catch (err) {
-                output.textContent = `Error: ${err}`;
-            } finally {
-                loader.style.display = 'none';
-            }
-        }
-    </script>
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="vuln-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="scan-timeline"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reconnaissance Page -->
+            <div id="recon-page" class="page">
+                <div class="scan-form">
+                    <h3>Target Reconnaissance</h3>
+                    <div class="input-group">
+                        <input type="text" id="recon-target" placeholder="Enter target domain (e.g., example.com)">
+                        <button onclick="startRecon()" class="btn-primary">
+                            <i class="fas fa-play"></i> Start Recon
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="results-tabs">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" onclick="showTab('subdomains')">Subdomains</button>
+                        <button class="tab-btn" onclick="showTab('urls')">URLs</button>
+                        <button class="tab-btn" onclick="showTab('parameters')">Parameters</button>
+                        <button class="tab-btn" onclick="showTab('directories')">Directories</button>
+                        <button class="tab-btn" onclick="showTab('tech')">Technologies</button>
+                    </div>
+                    
+                    <div id="subdomains-tab" class="tab-content active">
+                        <div class="results-header">
+                            <span>Found <span id="subdomain-count">0</span> subdomains</span>
+                            <button onclick="exportResults('subdomains')" class="btn-secondary">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </div>
+                        <div class="results-list" id="subdomains-list"></div>
+                    </div>
+                    
+                    <div id="urls-tab" class="tab-content">
+                        <div class="results-header">
+                            <span>Found <span id="urls-count">0</span> URLs</span>
+                        </div>
+                        <div class="results-list" id="urls-list"></div>
+                    </div>
+                    
+                    <div id="parameters-tab" class="tab-content">
+                        <div class="results-header">
+                            <span>Found <span id="parameters-count">0</span> parameters</span>
+                        </div>
+                        <div class="results-list" id="parameters-list"></div>
+                    </div>
+                    
+                    <div id="directories-tab" class="tab-content">
+                        <div class="results-header">
+                            <span>Found <span id="directories-count">0</span> directories</span>
+                        </div>
+                        <div class="results-list" id="directories-list"></div>
+                    </div>
+                    
+                    <div id="tech-tab" class="tab-content">
+                        <div class="results-header">
+                            <span>Detected <span id="tech-count">0</span> technologies</span>
+                        </div>
+                        <div class="results-list" id="tech-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vulnerability Scan Page -->
+            <div id="scan-page" class="page">
+                <div class="scan-form">
+                    <h3>Vulnerability Scanner</h3>
+                    <div class="input-group">
+                        <input type="text" id="scan-target" placeholder="Enter target URL/IP">
+                        <select id="scan-type">
+                            <option value="quick">Quick Scan</option>
+                            <option value="full">Full Scan</option>
+                            <option value="custom">Custom Scan</option>
+                        </select>
+                        <button onclick="startVulnScan()" class="btn-primary">
+                            <i class="fas fa-play"></i> Start Scan
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="scan-progress" id="scan-progress" style="display: none;">
+                    <h4>Scan Progress</h4>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <p id="scan-status">Initializing...</p>
+                </div>
+                
+                <div class="vuln-results" id="vuln-results"></div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
 </body>
 </html>
