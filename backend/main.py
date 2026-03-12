@@ -61,10 +61,10 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "http://0.0.0.0:3000",
         "http://0.0.0.0:8000",
-        "*"  # Allow all origins for development
+        "*"
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=600
@@ -131,43 +131,49 @@ async def get_stats():
 
 @app.post("/recon")
 async def run_recon(request: ReconRequest):
-    """Run reconnaissance on target"""
+    """Run reconnaissance on target with timeouts"""
     print(f"=== Recon request received for target: {request.target} ===")
     
     try:
-        # Run all recon modules concurrently
-        subdomains_task = find_subdomains(request.target)
-        wayback_task = get_wayback_urls(request.target)
-        otx_task = get_otx_urls(request.target)
-        live_hosts_task = check_live_hosts([request.target])
-        parameters_task = find_parameters(request.target)
-        directories_task = find_directories(request.target)
-        tech_task = detect_tech(request.target)
+        # Set timeout for each module (30 seconds)
+        timeout_seconds = 30
         
-        # Gather all results
-        subdomains, wayback_urls, otx_urls, live_hosts, parameters, directories, technologies = await asyncio.gather(
-            subdomains_task,
-            wayback_task,
-            otx_task,
-            live_hosts_task,
-            parameters_task,
-            directories_task,
-            tech_task,
-            return_exceptions=True
-        )
-        
-        # Handle any exceptions
+        # Create tasks with timeouts
         results = {
             "target": request.target,
             "timestamp": datetime.now().isoformat(),
-            "subdomains": subdomains if not isinstance(subdomains, Exception) else [],
-            "urls": wayback_urls if not isinstance(wayback_urls, Exception) else [],
-            "otx_urls": otx_urls if not isinstance(otx_urls, Exception) else [],
-            "live_hosts": live_hosts if not isinstance(live_hosts, Exception) else [],
-            "parameters": parameters if not isinstance(parameters, Exception) else [],
-            "directories": directories if not isinstance(directories, Exception) else [],
-            "technologies": technologies if not isinstance(technologies, Exception) else []
+            "subdomains": [],
+            "urls": [],
+            "otx_urls": [],
+            "live_hosts": [],
+            "parameters": [],
+            "directories": [],
+            "technologies": []
         }
+        
+        # Run modules with individual timeouts
+        modules = [
+            ("subdomains", find_subdomains, [request.target]),
+            ("urls", get_wayback_urls, [request.target]),
+            ("otx_urls", get_otx_urls, [request.target]),
+            ("live_hosts", check_live_hosts, [[request.target]]),
+            ("parameters", find_parameters, [request.target]),
+            ("directories", find_directories, [request.target]),
+            ("technologies", detect_tech, [request.target])
+        ]
+        
+        for name, func, args in modules:
+            try:
+                print(f"Running {name}...")
+                result = await asyncio.wait_for(func(*args), timeout=timeout_seconds)
+                results[name] = result if result is not None else []
+                print(f"✅ {name} completed: {len(results[name]) if isinstance(results[name], list) else 0} items")
+            except asyncio.TimeoutError:
+                print(f"⚠️ {name} timed out after {timeout_seconds} seconds")
+                results[name] = []
+            except Exception as e:
+                print(f"⚠️ {name} failed: {e}")
+                results[name] = []
         
         # Store results
         scan_id = str(uuid.uuid4())
@@ -176,6 +182,7 @@ async def run_recon(request: ReconRequest):
         print(f"=== Recon completed for {request.target} ===")
         print(f"   Subdomains: {len(results['subdomains'])}")
         print(f"   URLs: {len(results['urls'])}")
+        print(f"   OTX URLs: {len(results['otx_urls'])}")
         print(f"   Parameters: {len(results['parameters'])}")
         print(f"   Directories: {len(results['directories'])}")
         print(f"   Technologies: {len(results['technologies'])}")
@@ -249,8 +256,6 @@ async def run_vulnerability_scan(scan_id: str, request: ScanRequest):
     """Run vulnerability scan in background"""
     try:
         active_scans[scan_id]["status"] = "scanning"
-        
-        import asyncio
         
         for i in range(1, 11):
             await asyncio.sleep(2)
