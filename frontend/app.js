@@ -1,5 +1,5 @@
-// API Base URL
-const API_BASE = 'http://localhost:8000';
+// API Base URL - Empty means use relative URLs (through proxy)
+const API_BASE = '';
 
 // Wait for DOM to be fully loaded before running any code
 document.addEventListener('DOMContentLoaded', function() {
@@ -78,10 +78,15 @@ async function loadDashboard() {
         console.log('Dashboard stats:', stats);
         
         // Update stats cards
-        document.getElementById('total-scans').textContent = stats.total_scans || 0;
-        document.getElementById('total-vulns').textContent = stats.total_vulnerabilities || 0;
-        document.getElementById('total-hosts').textContent = stats.total_hosts || 0;
-        document.getElementById('active-scans').textContent = stats.active_scans || 0;
+        const totalScans = document.getElementById('total-scans');
+        const totalVulns = document.getElementById('total-vulns');
+        const totalHosts = document.getElementById('total-hosts');
+        const activeScans = document.getElementById('active-scans');
+        
+        if (totalScans) totalScans.textContent = stats.total_scans || 0;
+        if (totalVulns) totalVulns.textContent = stats.total_vulnerabilities || 0;
+        if (totalHosts) totalHosts.textContent = stats.total_hosts || 0;
+        if (activeScans) activeScans.textContent = stats.active_scans || 0;
         
         // Initialize charts
         initCharts(stats);
@@ -93,7 +98,8 @@ async function loadDashboard() {
 
 async function fetchStats() {
     try {
-        const response = await fetch(`${API_BASE}/stats`);
+        // Use proxy path
+        const response = await fetch(`/api/stats`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -208,7 +214,13 @@ function initCharts(stats) {
 
 // ==================== RECONNAISSANCE ====================
 async function startRecon() {
-    const target = document.getElementById('recon-target').value;
+    const targetInput = document.getElementById('recon-target');
+    if (!targetInput) {
+        console.error('recon-target input not found');
+        return;
+    }
+    
+    const target = targetInput.value;
     if (!target) {
         alert('Please enter a target domain');
         return;
@@ -220,9 +232,9 @@ async function startRecon() {
     showLoadingState();
     
     try {
-        console.log('Sending request to:', `${API_BASE}/recon`);
+        console.log('Sending request to:', `/api/recon`);
         
-        const response = await fetch(`${API_BASE}/recon`, {
+        const response = await fetch(`/api/recon`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -269,11 +281,11 @@ function showLoadingState() {
     });
     
     // Reset counts
-    document.getElementById('subdomain-count').textContent = '0';
-    document.getElementById('urls-count').textContent = '0';
-    document.getElementById('parameters-count').textContent = '0';
-    document.getElementById('directories-count').textContent = '0';
-    document.getElementById('tech-count').textContent = '0';
+    const countIds = ['subdomain-count', 'urls-count', 'parameters-count', 'directories-count', 'tech-count'];
+    countIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+    });
 }
 
 function showErrorState(errorMessage) {
@@ -302,7 +314,7 @@ function displaySubdomains(subdomains) {
         return;
     }
     
-    countSpan.textContent = subdomains.length;
+    if (countSpan) countSpan.textContent = subdomains.length;
     list.innerHTML = '';
     
     if (subdomains.length === 0) {
@@ -325,7 +337,7 @@ function displayUrls(urls) {
     
     if (!list) return;
     
-    countSpan.textContent = urls.length;
+    if (countSpan) countSpan.textContent = urls.length;
     list.innerHTML = '';
     
     if (urls.length === 0) {
@@ -348,7 +360,7 @@ function displayParameters(params) {
     
     if (!list) return;
     
-    countSpan.textContent = params.length;
+    if (countSpan) countSpan.textContent = params.length;
     list.innerHTML = '';
     
     if (params.length === 0) {
@@ -371,7 +383,7 @@ function displayDirectories(dirs) {
     
     if (!list) return;
     
-    countSpan.textContent = dirs.length;
+    if (countSpan) countSpan.textContent = dirs.length;
     list.innerHTML = '';
     
     if (dirs.length === 0) {
@@ -394,7 +406,7 @@ function displayTechnologies(techs) {
     
     if (!list) return;
     
-    countSpan.textContent = techs.length;
+    if (countSpan) countSpan.textContent = techs.length;
     list.innerHTML = '';
     
     if (techs.length === 0) {
@@ -441,7 +453,7 @@ function showTab(tabName) {
 // ==================== EXPORT ====================
 async function exportResults(type) {
     try {
-        const response = await fetch(`${API_BASE}/export/${type}`);
+        const response = await fetch(`/api/export/${type}`);
         const blob = await response.blob();
         
         const url = window.URL.createObjectURL(blob);
