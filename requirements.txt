@@ -32,8 +32,6 @@ colorama==0.4.6
 scapy==2.5.0
 netifaces==0.11.0
 python-nmap==0.7.1
-# Masscan alternatives - REMOVED as they don't exist on PyPI
-# Use system masscan binary instead
 pymongo==4.5.0
 redis==5.0.1
 
@@ -45,7 +43,8 @@ python-whois==0.8.0
 tldextract==5.1.1
 censys==2.2.5
 shodan==1.30.1
-virustotal-api==0.1.7
+# FIXED: Correct virustotal-api version
+virustotal-api==1.1.11
 securitytrails==0.1.4
 chaos-client==0.5.0
 
@@ -191,13 +190,6 @@ tqdm==4.66.1
 # ----------------------------------------------------------------------------
 scrapy==2.11.0
 crawl4ai==0.2.3
-
-# ----------------------------------------------------------------------------
-# Bug Bounty Platform Integrations
-# ----------------------------------------------------------------------------
-# Note: These require API keys - install if needed
-# hackerone
-# bugcrowd-client
 
 # ----------------------------------------------------------------------------
 # Development & Testing
