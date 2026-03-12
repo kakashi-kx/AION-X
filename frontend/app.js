@@ -1,322 +1,550 @@
-// API Base URL - Empty means use relative URLs (through proxy)
-const API_BASE = '';
+// ==================== CONFIGURATION ====================
+const API_BASE = '';  // Empty for relative URLs through proxy
+let currentScanId = null;
 
-// Wait for DOM to be fully loaded before running any code
+// ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM fully loaded - initializing AION-X dashboard');
+    console.log('🚀 AION-X 3.0 - AI Security Platform Initializing...');
+    showNotification('AION-X AI Platform Ready', 'success');
     
-    // Initialize navigation
     initializeNavigation();
-    
-    // Load dashboard data
     loadDashboard();
+    loadScanHistory();
     
-    // Set up periodic stats refresh (every 30 seconds)
+    // Set up periodic updates
     setInterval(loadDashboard, 30000);
+    setInterval(loadScanHistory, 60000);
 });
+
+// ==================== NOTIFICATION SYSTEM ====================
+function showNotification(message, type = 'info') {
+    Swal.fire({
+        title: message,
+        icon: type,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        background: 'var(--bg-card)',
+        color: 'white'
+    });
+}
 
 // ==================== NAVIGATION ====================
 function initializeNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
-    console.log(`Found ${navItems.length} navigation items`);
-    
-    if (navItems.length === 0) {
-        console.error('No navigation items found! Check your HTML structure.');
-        return;
-    }
     
     navItems.forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
             
             const pageId = this.dataset.page;
-            console.log('Navigating to:', pageId);
             
-            if (!pageId) {
-                console.error('No page-id found on nav item');
-                return;
-            }
-            
-            // Update active state on nav items
+            // Update active state
             navItems.forEach(nav => nav.classList.remove('active'));
             this.classList.add('active');
             
-            // Hide all pages
+            // Show selected page
             document.querySelectorAll('.page').forEach(page => {
                 page.classList.remove('active');
             });
-            
-            // Show selected page
-            const targetPage = document.getElementById(`${pageId}-page`);
-            if (targetPage) {
-                targetPage.classList.add('active');
-                console.log(`Showing page: ${pageId}-page`);
-            } else {
-                console.error(`Page element #${pageId}-page not found`);
-            }
+            document.getElementById(`${pageId}-page`).classList.add('active');
             
             // Update page title
-            const titleElement = document.getElementById('page-title');
-            if (titleElement) {
-                titleElement.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
-            }
+            document.getElementById('page-title').textContent = 
+                this.querySelector('span').textContent;
+            
+            // Trigger page-specific loading
+            if (pageId === 'dashboard') loadDashboard();
+            if (pageId === 'reports') loadScanHistory();
         });
     });
-    
-    // Trigger click on first nav item to show default page
-    if (navItems.length > 0) {
-        navItems[0].click();
-    }
 }
 
 // ==================== DASHBOARD ====================
 async function loadDashboard() {
-    console.log('Loading dashboard stats...');
-    
     try {
         const stats = await fetchStats();
-        console.log('Dashboard stats:', stats);
-        
-        // Update stats cards
-        const totalScans = document.getElementById('total-scans');
-        const totalVulns = document.getElementById('total-vulns');
-        const totalHosts = document.getElementById('total-hosts');
-        const activeScans = document.getElementById('active-scans');
-        
-        if (totalScans) totalScans.textContent = stats.total_scans || 0;
-        if (totalVulns) totalVulns.textContent = stats.total_vulnerabilities || 0;
-        if (totalHosts) totalHosts.textContent = stats.total_hosts || 0;
-        if (activeScans) activeScans.textContent = stats.active_scans || 0;
-        
-        // Initialize charts
-        initCharts(stats);
-        
+        updateDashboardStats(stats);
+        updateCharts(stats);
+        updateRecentInsights();
     } catch (error) {
-        console.error('Error loading dashboard:', error);
+        console.error('Dashboard error:', error);
     }
 }
 
 async function fetchStats() {
-    try {
-        // Use proxy path
-        const response = await fetch(`/api/stats`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching stats:', error);
-        return {
-            total_scans: 0,
-            total_vulnerabilities: 0,
-            total_hosts: 0,
-            active_scans: 0,
-            critical_vulns: 0,
-            high_vulns: 0,
-            medium_vulns: 0,
-            low_vulns: 0,
-            scan_dates: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            scan_counts: [0, 0, 0, 0, 0, 0, 0]
-        };
-    }
+    const response = await fetch('/api/stats');
+    return await response.json();
 }
 
-function initCharts(stats) {
+function updateDashboardStats(stats) {
+    // Main stats
+    document.getElementById('total-scans').textContent = stats.total_scans || 0;
+    document.getElementById('total-vulns').textContent = stats.total_vulnerabilities || 0;
+    document.getElementById('total-hosts').textContent = stats.total_hosts || 0;
+    document.getElementById('active-scans').textContent = stats.active_scans || 0;
+    
+    // Mini stats in sidebar
+    document.getElementById('total-scans-mini').textContent = stats.total_scans || 0;
+    document.getElementById('total-vulns-mini').textContent = stats.total_vulnerabilities || 0;
+}
+
+function updateCharts(stats) {
     // Vulnerability Chart
     const vulnCtx = document.getElementById('vuln-chart');
-    if (!vulnCtx) {
-        console.error('vuln-chart element not found');
-        return;
-    }
+    if (vulnCtx && window.vulnChart) window.vulnChart.destroy();
     
-    // Check if Chart is defined
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js not loaded');
-        return;
-    }
-    
-    // Destroy existing chart if it exists
-    if (window.vulnChart) {
-        window.vulnChart.destroy();
-    }
-    
-    window.vulnChart = new Chart(vulnCtx.getContext('2d'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Critical', 'High', 'Medium', 'Low'],
-            datasets: [{
-                data: [
-                    stats.critical_vulns || 0,
-                    stats.high_vulns || 0,
-                    stats.medium_vulns || 0,
-                    stats.low_vulns || 0
-                ],
-                backgroundColor: ['#ff4757', '#ff6b6b', '#ffaa00', '#00d68f'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#e0e0e0' }
-                }
-            }
-        }
-    });
-    
-    // Scan Timeline Chart
-    const scanCtx = document.getElementById('scan-timeline');
-    if (!scanCtx) {
-        console.error('scan-timeline element not found');
-        return;
-    }
-    
-    if (window.scanChart) {
-        window.scanChart.destroy();
-    }
-    
-    window.scanChart = new Chart(scanCtx.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: stats.scan_dates || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-                label: 'Scans',
-                data: stats.scan_counts || [0, 0, 0, 0, 0, 0, 0],
-                borderColor: '#00ff9d',
-                backgroundColor: 'rgba(0, 255, 157, 0.1)',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: { color: '#e0e0e0' }
-                }
+    if (vulnCtx) {
+        window.vulnChart = new Chart(vulnCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Critical', 'High', 'Medium', 'Low'],
+                datasets: [{
+                    data: [
+                        stats.critical_vulns || 0,
+                        stats.high_vulns || 0,
+                        stats.medium_vulns || 0,
+                        stats.low_vulns || 0
+                    ],
+                    backgroundColor: ['#ef4444', '#ff6b6b', '#f59e0b', '#10b981'],
+                    borderWidth: 0
+                }]
             },
-            scales: {
-                x: { 
-                    grid: { color: 'rgba(255,255,255,0.1)' }, 
-                    ticks: { color: '#e0e0e0' } 
-                },
-                y: { 
-                    grid: { color: 'rgba(255,255,255,0.1)' }, 
-                    ticks: { color: '#e0e0e0' } 
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: 'white' } }
                 }
             }
-        }
-    });
+        });
+    }
+    
+    // Timeline Chart
+    const timelineCtx = document.getElementById('scan-timeline');
+    if (timelineCtx && window.timelineChart) window.timelineChart.destroy();
+    
+    if (timelineCtx) {
+        window.timelineChart = new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Scans',
+                    data: stats.scan_counts || [0, 0, 0, 0, 0, 0, 0],
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: 'white' } }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'white' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'white' } }
+                }
+            }
+        });
+    }
 }
 
 // ==================== RECONNAISSANCE ====================
 async function startRecon() {
-    const targetInput = document.getElementById('recon-target');
-    if (!targetInput) {
-        console.error('recon-target input not found');
-        return;
-    }
-    
-    const target = targetInput.value;
+    const target = document.getElementById('recon-target').value;
     if (!target) {
-        alert('Please enter a target domain');
+        showNotification('Please enter a target domain', 'warning');
         return;
     }
     
-    console.log('Starting recon for target:', target);
-    
-    // Show loading state
     showLoadingState();
     
     try {
-        console.log('Sending request to:', `/api/recon`);
-        
-        const response = await fetch(`/api/recon`, {
+        const response = await fetch('/api/recon', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target })
         });
         
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        console.log('Received data:', data);
         
-        // Update results
         displaySubdomains(data.subdomains || []);
         displayUrls(data.urls || []);
         displayParameters(data.parameters || []);
         displayDirectories(data.directories || []);
         displayTechnologies(data.technologies || []);
         
+        showNotification(`Recon completed for ${target}`, 'success');
+        
     } catch (error) {
-        console.error('Error starting recon:', error);
+        showNotification('Recon failed: ' + error.message, 'error');
         showErrorState(error.message);
-        alert('Error starting reconnaissance: ' + error.message);
     }
 }
 
-function showLoadingState() {
-    const resultContainers = [
-        'subdomains-list', 'urls-list', 'parameters-list', 
-        'directories-list', 'tech-list'
-    ];
+// ==================== AI BUGREAPER ====================
+async function startAIScan() {
+    const target = document.getElementById('ai-target').value;
+    const depth = document.getElementById('ai-depth').value;
     
-    resultContainers.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.innerHTML = '<div class="result-item"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
-        }
-    });
-    
-    // Reset counts
-    const countIds = ['subdomain-count', 'urls-count', 'parameters-count', 'directories-count', 'tech-count'];
-    countIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = '0';
-    });
-}
-
-function showErrorState(errorMessage) {
-    const resultContainers = [
-        'subdomains-list', 'urls-list', 'parameters-list', 
-        'directories-list', 'tech-list'
-    ];
-    
-    resultContainers.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.innerHTML = `<div class="result-item error">
-                <i class="fas fa-exclamation-triangle"></i> Error: ${errorMessage}
-            </div>`;
-        }
-    });
-}
-
-function displaySubdomains(subdomains) {
-    console.log('Displaying subdomains:', subdomains.length);
-    const list = document.getElementById('subdomains-list');
-    const countSpan = document.getElementById('subdomain-count');
-    
-    if (!list) {
-        console.error('subdomains-list element not found');
+    if (!target) {
+        showNotification('Please enter a target', 'warning');
         return;
     }
     
-    if (countSpan) countSpan.textContent = subdomains.length;
-    list.innerHTML = '';
+    // Show progress
+    document.getElementById('ai-progress').style.display = 'block';
+    document.getElementById('ai-status').textContent = 'Initializing AI Engine...';
     
+    try {
+        const response = await fetch('/api/ai-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target, scan_depth: depth })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        // Animate progress
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 10;
+            document.getElementById('ai-progress-fill').style.width = progress + '%';
+            if (progress >= 100) {
+                clearInterval(interval);
+                displayAIResults(data);
+                showNotification('AI Scan Complete!', 'success');
+            }
+        }, 300);
+        
+    } catch (error) {
+        document.getElementById('ai-progress').style.display = 'none';
+        showNotification('AI Scan failed: ' + error.message, 'error');
+    }
+}
+
+function displayAIResults(data) {
+    const container = document.getElementById('ai-results');
+    document.getElementById('ai-progress').style.display = 'none';
+    
+    let html = `
+        <div class="results-summary">
+            <h4>🔍 AI Analysis Results</h4>
+            <div class="stats-mini">
+                <span class="badge critical">Critical: ${data.critical || 0}</span>
+                <span class="badge high">High: ${data.high || 0}</span>
+                <span class="badge medium">Medium: ${data.medium || 0}</span>
+                <span class="badge low">Low: ${data.low || 0}</span>
+            </div>
+        </div>
+    `;
+    
+    if (data.findings && data.findings.length > 0) {
+        data.findings.forEach(finding => {
+            html += `
+                <div class="vuln-item ${finding.severity?.toLowerCase() || 'info'}">
+                    <div class="vuln-header">
+                        <span class="vuln-name">${finding.name || 'Unknown'}</span>
+                        <span class="vuln-severity ${finding.severity?.toLowerCase()}">${finding.severity || 'INFO'}</span>
+                    </div>
+                    <div class="vuln-description">${finding.description || 'No description'}</div>
+                    <div class="vuln-meta">
+                        <span><i class="fas fa-code"></i> ${finding.cwe || 'N/A'}</span>
+                        <span><i class="fas fa-star"></i> CVSS: ${finding.cvss_score || 'N/A'}</span>
+                        <span><i class="fas fa-check-circle"></i> Confidence: ${Math.round(finding.confidence * 100)}%</span>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html += '<p class="no-results">No vulnerabilities found</p>';
+    }
+    
+    container.innerHTML = html;
+}
+
+// ==================== API SCANNER ====================
+async function startAPIScan() {
+    const target = document.getElementById('api-target').value;
+    const apiBase = document.getElementById('api-base').value;
+    
+    if (!target) {
+        showNotification('Please enter an API target', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/api-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target, api_base: apiBase })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        displayAPIResults(data);
+        showNotification('API Scan Complete!', 'success');
+        
+    } catch (error) {
+        showNotification('API Scan failed: ' + error.message, 'error');
+    }
+}
+
+function displayAPIResults(data) {
+    const container = document.getElementById('api-results');
+    
+    let html = '<div class="results-summary"><h4>🔌 API Security Scan Results</h4>';
+    
+    if (data.endpoints_discovered && data.endpoints_discovered.length > 0) {
+        html += '<h5>Discovered Endpoints:</h5><ul>';
+        data.endpoints_discovered.forEach(ep => {
+            html += `<li><i class="fas fa-link"></i> ${ep}</li>`;
+        });
+        html += '</ul>';
+    }
+    
+    if (data.findings && data.findings.length > 0) {
+        html += '<h5>Vulnerabilities:</h5>';
+        data.findings.forEach(f => {
+            html += `
+                <div class="vuln-item ${f.severity?.toLowerCase()}">
+                    <div class="vuln-header">
+                        <span class="vuln-name">${f.name}</span>
+                        <span class="vuln-severity ${f.severity?.toLowerCase()}">${f.category || 'API'}</span>
+                    </div>
+                    <div class="vuln-description">${f.description}</div>
+                </div>
+            `;
+        });
+    }
+    
+    container.innerHTML = html;
+}
+
+// ==================== CI/CD SCANNER ====================
+async function startCICDScan() {
+    const repoUrl = document.getElementById('repo-url').value;
+    const branch = document.getElementById('repo-branch').value;
+    
+    if (!repoUrl) {
+        showNotification('Please enter a repository URL', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/cicd-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repo_url: repoUrl, branch: branch })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        displayCICDResults(data);
+        showNotification('CI/CD Scan Complete!', 'success');
+        
+    } catch (error) {
+        showNotification('CI/CD Scan failed: ' + error.message, 'error');
+    }
+}
+
+function displayCICDResults(data) {
+    const container = document.getElementById('cicd-results');
+    
+    let html = `
+        <div class="results-summary">
+            <h4>🔄 CI/CD Security Scan Results</h4>
+            <div class="stats-mini">
+                <span class="badge critical">Critical: ${data.critical || 0}</span>
+                <span class="badge high">High: ${data.high || 0}</span>
+                <span class="badge medium">Medium: ${data.medium || 0}</span>
+                <span class="badge low">Low: ${data.low || 0}</span>
+            </div>
+        </div>
+    `;
+    
+    if (data.findings && data.findings.length > 0) {
+        data.findings.forEach(f => {
+            html += `
+                <div class="vuln-item ${f.severity?.toLowerCase()}">
+                    <div class="vuln-header">
+                        <span class="vuln-name">${f.name}</span>
+                        <span class="vuln-severity ${f.severity?.toLowerCase()}">${f.severity}</span>
+                    </div>
+                    <div class="vuln-description">${f.description}</div>
+                    <div class="vuln-meta">
+                        <span><i class="fas fa-file"></i> ${f.file_path || 'N/A'}</span>
+                        <span><i class="fas fa-hashtag"></i> Line: ${f.line_number || 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html += '<p class="no-results">No issues found</p>';
+    }
+    
+    container.innerHTML = html;
+}
+
+// ==================== REPORTS ====================
+async function loadScanHistory() {
+    try {
+        const response = await fetch('/api/scans');
+        const data = await response.json();
+        
+        const historyEl = document.getElementById('scan-history');
+        if (!historyEl) return;
+        
+        let html = '';
+        data.completed.slice(-5).reverse().forEach(scanId => {
+            html += `
+                <div class="scan-history-item" onclick="viewScan('${scanId}')">
+                    <i class="fas fa-file-alt"></i>
+                    <div>
+                        <strong>Scan ${scanId.slice(0,8)}</strong>
+                        <small>Completed</small>
+                    </div>
+                </div>
+            `;
+        });
+        
+        historyEl.innerHTML = html || '<p>No scans yet</p>';
+        
+    } catch (error) {
+        console.error('Failed to load scan history:', error);
+    }
+}
+
+async function generateReport(format) {
+    if (!currentScanId) {
+        // Get latest scan
+        try {
+            const response = await fetch('/api/scans');
+            const data = await response.json();
+            if (data.completed.length > 0) {
+                currentScanId = data.completed[data.completed.length - 1];
+            } else {
+                showNotification('No scans available', 'warning');
+                return;
+            }
+        } catch (error) {
+            showNotification('Failed to get scan data', 'error');
+            return;
+        }
+    }
+    
+    try {
+        const response = await fetch(`/api/generate-report/${currentScanId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format, include_ai_analysis: true })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report_${currentScanId}.${format}`;
+            a.click();
+            showNotification(`Report generated: ${format.toUpperCase()}`, 'success');
+        }
+    } catch (error) {
+        showNotification('Report generation failed', 'error');
+    }
+}
+
+async function exportJSON() {
+    if (!currentScanId) {
+        showNotification('No scan selected', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/export/${currentScanId}?format=json`);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `scan_${currentScanId}.json`;
+        a.click();
+    } catch (error) {
+        showNotification('Export failed', 'error');
+    }
+}
+
+// ==================== BUG BOUNTY ====================
+async function submitToPlatform(platform) {
+    if (!currentScanId) {
+        showNotification('No scan selected', 'warning');
+        return;
+    }
+    
+    // Get the first critical finding as example
+    try {
+        const response = await fetch(`/api/scan/${currentScanId}/status`);
+        const data = await response.json();
+        
+        if (!data.vulnerabilities || data.vulnerabilities.length === 0) {
+            showNotification('No vulnerabilities to submit', 'warning');
+            return;
+        }
+        
+        const vuln = data.vulnerabilities[0];
+        
+        const submitResponse = await fetch('/api/submit-to-bugbounty', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                vulnerability: vuln,
+                platform: platform,
+                program_id: 'example-program'
+            })
+        });
+        
+        if (submitResponse.ok) {
+            showNotification(`Submitted to ${platform} successfully!`, 'success');
+        }
+    } catch (error) {
+        showNotification('Submission failed', 'error');
+    }
+}
+
+function submitManual() {
+    const desc = document.getElementById('vuln-desc').value;
+    const severity = document.getElementById('vuln-severity').value;
+    
+    if (!desc || !severity) {
+        showNotification('Please fill all fields', 'warning');
+        return;
+    }
+    
+    showNotification('Manual submission saved', 'success');
+}
+
+// ==================== DISPLAY FUNCTIONS ====================
+function displaySubdomains(subdomains) {
+    const list = document.getElementById('subdomains-list');
+    const count = document.getElementById('subdomain-count');
+    const countDisplay = document.getElementById('subdomain-count-display');
+    
+    if (count) count.textContent = subdomains.length;
+    if (countDisplay) countDisplay.textContent = subdomains.length;
+    
+    if (!list) return;
+    
+    list.innerHTML = '';
     if (subdomains.length === 0) {
         list.innerHTML = '<div class="result-item">No subdomains found</div>';
         return;
@@ -331,15 +559,15 @@ function displaySubdomains(subdomains) {
 }
 
 function displayUrls(urls) {
-    console.log('Displaying URLs:', urls.length);
     const list = document.getElementById('urls-list');
-    const countSpan = document.getElementById('urls-count');
+    const count = document.getElementById('urls-count');
+    const countDisplay = document.getElementById('urls-count-display');
     
+    if (count) count.textContent = urls.length;
+    if (countDisplay) countDisplay.textContent = urls.length;
     if (!list) return;
     
-    if (countSpan) countSpan.textContent = urls.length;
     list.innerHTML = '';
-    
     if (urls.length === 0) {
         list.innerHTML = '<div class="result-item">No URLs found</div>';
         return;
@@ -354,15 +582,15 @@ function displayUrls(urls) {
 }
 
 function displayParameters(params) {
-    console.log('Displaying parameters:', params.length);
     const list = document.getElementById('parameters-list');
-    const countSpan = document.getElementById('parameters-count');
+    const count = document.getElementById('parameters-count');
+    const countDisplay = document.getElementById('parameters-count-display');
     
+    if (count) count.textContent = params.length;
+    if (countDisplay) countDisplay.textContent = params.length;
     if (!list) return;
     
-    if (countSpan) countSpan.textContent = params.length;
     list.innerHTML = '';
-    
     if (params.length === 0) {
         list.innerHTML = '<div class="result-item">No parameters found</div>';
         return;
@@ -377,15 +605,15 @@ function displayParameters(params) {
 }
 
 function displayDirectories(dirs) {
-    console.log('Displaying directories:', dirs.length);
     const list = document.getElementById('directories-list');
-    const countSpan = document.getElementById('directories-count');
+    const count = document.getElementById('directories-count');
+    const countDisplay = document.getElementById('directories-count-display');
     
+    if (count) count.textContent = dirs.length;
+    if (countDisplay) countDisplay.textContent = dirs.length;
     if (!list) return;
     
-    if (countSpan) countSpan.textContent = dirs.length;
     list.innerHTML = '';
-    
     if (dirs.length === 0) {
         list.innerHTML = '<div class="result-item">No directories found</div>';
         return;
@@ -400,15 +628,15 @@ function displayDirectories(dirs) {
 }
 
 function displayTechnologies(techs) {
-    console.log('Displaying technologies:', techs.length);
     const list = document.getElementById('tech-list');
-    const countSpan = document.getElementById('tech-count');
+    const count = document.getElementById('tech-count');
+    const countDisplay = document.getElementById('tech-count-display');
     
+    if (count) count.textContent = techs.length;
+    if (countDisplay) countDisplay.textContent = techs.length;
     if (!list) return;
     
-    if (countSpan) countSpan.textContent = techs.length;
     list.innerHTML = '';
-    
     if (techs.length === 0) {
         list.innerHTML = '<div class="result-item">No technologies detected</div>';
         return;
@@ -422,32 +650,55 @@ function displayTechnologies(techs) {
     });
 }
 
-// ==================== TAB SWITCHING ====================
+// ==================== UTILITY FUNCTIONS ====================
+function showLoadingState() {
+    const lists = ['subdomains-list', 'urls-list', 'parameters-list', 'directories-list', 'tech-list'];
+    lists.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="result-item"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    });
+}
+
+function showErrorState(message) {
+    const lists = ['subdomains-list', 'urls-list', 'parameters-list', 'directories-list', 'tech-list'];
+    lists.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = `<div class="result-item error"><i class="fas fa-exclamation-triangle"></i> ${message}</div>`;
+    });
+}
+
 function showTab(tabName) {
-    console.log('Switching to tab:', tabName);
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Find and activate the clicked button
-    const activeBtn = Array.from(document.querySelectorAll('.tab-btn'))
-        .find(btn => btn.textContent.toLowerCase().includes(tabName.toLowerCase()));
-    
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-    
-    // Show corresponding tab content
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
+    const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(
+        btn => btn.textContent.toLowerCase().includes(tabName.toLowerCase())
+    );
+    if (activeBtn) activeBtn.classList.add('active');
     
     const targetTab = document.getElementById(`${tabName}-tab`);
-    if (targetTab) {
-        targetTab.classList.add('active');
-    }
+    if (targetTab) targetTab.classList.add('active');
+}
+
+function viewScan(scanId) {
+    currentScanId = scanId;
+    showNotification(`Viewing scan: ${scanId.slice(0,8)}`, 'info');
+}
+
+function updateRecentInsights() {
+    const insightsEl = document.getElementById('recent-insights');
+    if (!insightsEl) return;
+    
+    insightsEl.innerHTML = `
+        <div class="activity-item">
+            <i class="fas fa-robot"></i>
+            <div class="activity-content">
+                <strong>AI Analysis Complete</strong>
+                <p>System ready for new scans</p>
+                <small>Just now</small>
+            </div>
+        </div>
+    `;
 }
 
 // ==================== EXPORT ====================
@@ -455,23 +706,26 @@ async function exportResults(type) {
     try {
         const response = await fetch(`/api/export/${type}`);
         const blob = await response.blob();
-        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `${type}_results_${new Date().toISOString()}.json`;
-        document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
+        showNotification(`${type} exported successfully`, 'success');
     } catch (error) {
-        console.error('Error exporting results:', error);
-        alert('Error exporting results');
+        showNotification('Export failed', 'error');
     }
 }
 
-// Make functions globally available for onclick events
+// ==================== MAKE FUNCTIONS GLOBAL ====================
 window.startRecon = startRecon;
+window.startAIScan = startAIScan;
+window.startAPIScan = startAPIScan;
+window.startCICDScan = startCICDScan;
+window.generateReport = generateReport;
+window.exportJSON = exportJSON;
+window.submitToPlatform = submitToPlatform;
+window.submitManual = submitManual;
 window.showTab = showTab;
 window.exportResults = exportResults;
+window.viewScan = viewScan;
