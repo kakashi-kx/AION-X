@@ -1,6 +1,6 @@
 # ============================================================================
 # AION-X 2026 - AI-Powered Penetration Testing Platform
-# Full Version with All Cutting-Edge Features
+# Full Version with All Cutting-Edge Features (FIXED DEPENDENCIES)
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -32,8 +32,8 @@ colorama==0.4.6
 scapy==2.5.0
 netifaces==0.11.0
 python-nmap==0.7.1
-masscan==0.1.0
-pyScannerWrapper==0.2.1
+# Masscan alternatives - REMOVED as they don't exist on PyPI
+# Use system masscan binary instead
 pymongo==4.5.0
 redis==5.0.1
 
@@ -77,20 +77,11 @@ transformers==4.35.0
 torch==2.1.0
 torchvision==0.16.0
 sentence-transformers==2.2.2
-tensorflow==2.14.0
-keras==2.14.0
-xgboost==2.0.2
-lightgbm==4.1.0
-catboost==1.2.2
-onnxruntime==1.16.1
 tokenizers==0.15.0
 accelerate==0.25.0
 datasets==2.15.0
-evaluate==0.4.1
 openai==1.6.1
-anthropic==0.7.7
 langchain==0.0.340
-llama-index==0.9.3
 
 # ----------------------------------------------------------------------------
 # GraphQL & API Testing
@@ -98,10 +89,7 @@ llama-index==0.9.3
 gql==3.5.0
 graphql-core==3.2.3
 graphql-relay==3.2.0
-api-spec-converter==3.1.0
-prance==23.6.21
 openapi-spec-validator==0.6.0
-swagger-parser==2.1.0
 
 # ----------------------------------------------------------------------------
 # Authentication & JWT
@@ -119,11 +107,9 @@ requests-oauthlib==1.3.1
 # ----------------------------------------------------------------------------
 cryptography==41.0.7
 pyOpenSSL==23.3.0
-pycryptodome==3.19.0
 rsa==4.9
 ecdsa==0.18.0
 base58==2.1.1
-hashids==1.3.1
 python-magic==0.4.27
 
 # ----------------------------------------------------------------------------
@@ -149,7 +135,6 @@ backoff==2.2.1
 tenacity==8.2.3
 aiojobs==1.2.0
 celery==5.3.4
-redis==5.0.1
 hiredis==2.3.2
 
 # ----------------------------------------------------------------------------
@@ -159,7 +144,6 @@ slowapi==0.1.9
 limits==3.6.0
 aiocache==0.12.2
 cachetools==5.3.1
-python-memcached==1.59
 
 # ----------------------------------------------------------------------------
 # Logging & Monitoring
@@ -168,19 +152,15 @@ loguru==0.7.2
 structlog==23.2.0
 python-json-logger==2.0.7
 prometheus-client==0.19.0
-opentelemetry-api==1.21.0
-opentelemetry-sdk==1.21.0
 
 # ----------------------------------------------------------------------------
 # CI/CD & DevSecOps
 # ----------------------------------------------------------------------------
 gitpython==3.1.40
-github-py==1.0.0
-gitlab==4.4.0
+PyGithub==2.1.1
+python-gitlab==4.4.0
 docker==7.0.0
 kubernetes==28.1.0
-helm==0.1.0
-jenkinsapi==0.3.13
 
 # ----------------------------------------------------------------------------
 # Cloud Security
@@ -200,11 +180,7 @@ digitalocean==1.17.0
 matplotlib==3.8.2
 seaborn==0.13.0
 plotly==5.18.0
-dash==2.14.2
-bokeh==3.3.2
 networkx==3.2.1
-pygraphviz==1.11
-pydot==1.4.2
 tabulate==0.9.0
 prettytable==3.9.0
 rich==13.7.0
@@ -214,20 +190,14 @@ tqdm==4.66.1
 # Web Scraping & Crawling
 # ----------------------------------------------------------------------------
 scrapy==2.11.0
-selenium==4.15.2
-playwright==1.40.0
-pyppeteer==1.0.2
 crawl4ai==0.2.3
-autoscraper==1.1.14
 
 # ----------------------------------------------------------------------------
 # Bug Bounty Platform Integrations
 # ----------------------------------------------------------------------------
-hackerone==1.0.0
-bugcrowd==0.1.0
-intigriti==0.1.0
-yeswehack==0.2.0
-huntr==0.1.0
+# Note: These require API keys - install if needed
+# hackerone
+# bugcrowd-client
 
 # ----------------------------------------------------------------------------
 # Development & Testing
@@ -236,8 +206,6 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 pytest-xdist==3.5.0
-pytest-timeout==2.2.0
-pytest-mock==3.12.0
 coverage==7.3.2
 black==23.11.0
 isort==5.12.0
@@ -251,8 +219,6 @@ pre-commit==3.5.0
 # ----------------------------------------------------------------------------
 mkdocs==1.5.3
 mkdocs-material==9.5.2
-pdoc==14.1.0
-sphinx==7.2.6
 
 # ----------------------------------------------------------------------------
 # Utilities
@@ -266,4 +232,3 @@ termcolor==2.4.0
 coloredlogs==15.0.1
 humanize==4.9.0
 psutil==5.9.6
-pynput==1.7.6
