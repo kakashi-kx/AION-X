@@ -43,9 +43,9 @@ python-whois==0.8.0
 tldextract==5.1.1
 censys==2.2.5
 shodan==1.30.1
-# FIXED: Correct virustotal-api version
 virustotal-api==1.1.11
-securitytrails==0.1.4
+# FIXED: Correct SecurityTrails package
+pysecuritytrails==0.1.3
 chaos-client==0.5.0
 
 # ----------------------------------------------------------------------------
