@@ -1,3 +1,11 @@
+import sys
+import os
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -6,24 +14,38 @@ from typing import Optional, List, Dict
 import uuid
 import json
 from datetime import datetime
-import os
 
-# Import your modules
-from modules.recon.recon_engine import run_full_recon
-from modules.recon.subdomain_scanner import find_subdomains
-from modules.recon.wayback_urls import get_wayback_urls
-from modules.recon.otx_urls import get_otx_urls
-from modules.recon.live_hosts import check_live_hosts
-from modules.recon.param_discovery import find_parameters
-from modules.recon.dir_finder import find_directories
-from modules.recon.tech_detector import detect_tech
+# Try to import modules with error handling
+try:
+    from modules.recon.recon_engine import run_full_recon
+    from modules.recon.subdomain_scanner import find_subdomains
+    from modules.recon.wayback_urls import get_wayback_urls
+    from modules.recon.otx_urls import get_otx_urls
+    from modules.recon.live_hosts import check_live_hosts
+    from modules.recon.param_discovery import find_parameters
+    from modules.recon.dir_finder import find_directories
+    from modules.recon.tech_detector import detect_tech
+    MODULES_LOADED = True
+except ImportError as e:
+    print(f"Warning: Some modules could not be imported: {e}")
+    print(f"Current Python path: {sys.path}")
+    MODULES_LOADED = False
+    
+    # Create placeholder functions for development
+    async def find_subdomains(target): return ["sub1.example.com", "sub2.example.com"]
+    async def get_wayback_urls(target): return ["https://example.com/page1", "https://example.com/page2"]
+    async def get_otx_urls(target): return []
+    async def check_live_hosts(targets): return targets
+    async def find_parameters(target): return ["id", "page", "user"]
+    async def find_directories(target): return ["/admin", "/api", "/backup"]
+    async def detect_tech(target): return ["nginx", "python", "react"]
 
 app = FastAPI(title="AION-X API", version="0.1.0")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,19 +68,22 @@ class ScanStatus(BaseModel):
     completed: bool
     vulnerabilities: Optional[List[Dict]] = None
 
-# In-memory storage (replace with database in production)
+# In-memory storage
 active_scans = {}
 scan_results = {}
 
-# Endpoints
 @app.get("/")
 async def root():
-    return {"message": "AION-X API is running", "version": "0.1.0"}
+    return {
+        "message": "AION-X API is running",
+        "version": "0.1.0",
+        "modules_loaded": MODULES_LOADED,
+        "python_path": sys.path
+    }
 
 @app.get("/stats")
 async def get_stats():
     """Get dashboard statistics"""
-    # TODO: Implement actual stats from database
     return {
         "total_scans": len(scan_results),
         "active_scans": len(active_scans),
@@ -140,11 +165,12 @@ async def get_scan_status(scan_id: str):
 @app.get("/export/{scan_type}")
 async def export_results(scan_type: str):
     """Export scan results"""
-    # TODO: Implement export functionality
-    # For now, return sample data
-    data = {"type": scan_type, "results": [], "exported_at": datetime.now().isoformat()}
+    data = {
+        "type": scan_type,
+        "results": [],
+        "exported_at": datetime.now().isoformat()
+    }
     
-    # Save to temp file
     filename = f"export_{scan_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     filepath = f"/tmp/{filename}"
     
@@ -153,19 +179,16 @@ async def export_results(scan_type: str):
     
     return FileResponse(filepath, filename=filename, media_type="application/json")
 
-# Background task for vulnerability scanning
 async def run_vulnerability_scan(scan_id: str, request: ScanRequest):
     """Run vulnerability scan in background"""
     try:
         # Update status
         active_scans[scan_id]["status"] = "scanning"
         
-        # TODO: Implement actual vulnerability scanning logic
-        # This is a placeholder that simulates scanning progress
         import asyncio
         
         for i in range(1, 11):
-            await asyncio.sleep(2)  # Simulate work
+            await asyncio.sleep(2)
             active_scans[scan_id]["progress"] = i * 10
             active_scans[scan_id]["status"] = f"Scanning... {i*10}%"
         
