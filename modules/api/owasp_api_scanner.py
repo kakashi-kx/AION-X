@@ -374,4 +374,66 @@ class OWASPAPIScanner:
                                     name="Security Misconfiguration - Verbose Errors",
                                     severity="Low",
                                     description="API returns verbose error messages with debugging information",
-                                    affected_end
+                                    affected_endpoint=endpoint,
+                                    proof_of_concept=f"Request with malformed input revealed SQL error",
+                                    remediation="Implement generic error messages and proper logging"
+                                ))
+            except:
+                continue
+                
+        return findings
+    
+    async def check_api8_injection(self, endpoints: List[str]) -> List[APIVulnerability]:
+        """API8:2026 - Injection (SQL, NoSQL, Command Injection)"""
+        findings = []
+        
+        # SQL Injection payloads
+        sql_payloads = [
+            "' OR '1'='1",
+            "1' OR '1'='1' --",
+            "1' OR 1=1 --",
+            "1' UNION SELECT NULL--",
+            "'; DROP TABLE users--",
+            "1' WAITFOR DELAY '0:0:5'--"
+        ]
+        
+        # NoSQL payloads  
+        nosql_payloads = [
+            '{"$ne": null}',
+            '{"$gt": ""}',
+            '{"$regex": "^.*"}',
+            '{"$where": "function() { return true }"}'
+        ]
+        
+        # Command injection payloads
+        cmd_payloads = [
+            "; ls",
+            "| ls",
+            "&& ls",
+            "|| ls",
+            "`ls`",
+            "$(ls)"
+        ]
+        
+        for endpoint in endpoints:
+            for payload in sql_payloads:
+                test_url = f"{url}?id={payload}"
+                try:
+                    async with self.session.get(test_url) as resp:
+                        text = await resp.text()
+                        # Check for SQL errors
+                        if any(error in text.lower() for error in ['sql', 'mysql', 'postgresql', 'oracle', 'syntax']):
+                            findings.append(APIVulnerability(
+                                category="API8:2026",
+                                name="SQL Injection",
+                                severity="Critical",
+                                description=f"SQL injection detected with payload: {payload}",
+                                affected_endpoint=endpoint,
+                                proof_of_concept=f"GET {test_url} returned SQL error",
+                                remediation="Use parameterized queries and input validation"
+                            ))
+                            break
+                except:
+                    continue
+                    
+        return findings
