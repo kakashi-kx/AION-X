@@ -10,14 +10,15 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import uuid
 import json
 from datetime import datetime
+import asyncio
+import inspect
 
 # Import your modules
 try:
-    from modules.recon.recon_engine import run_full_recon
     from modules.recon.subdomain_scanner import find_subdomains
     from modules.recon.wayback_urls import get_wayback_urls
     from modules.recon.otx_urls import get_otx_urls
@@ -25,6 +26,7 @@ try:
     from modules.recon.param_discovery import find_parameters
     from modules.recon.dir_finder import find_directories
     from modules.recon.tech_detector import detect_tech
+    from modules.recon.recon_engine import run_full_recon
     MODULES_LOADED = True
     print("✅ All modules loaded successfully")
 except ImportError as e:
@@ -49,7 +51,7 @@ except ImportError as e:
 
 app = FastAPI(title="AION-X API", version="0.1.0")
 
-# Configure CORS - FIXED VERSION
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -133,16 +135,38 @@ async def run_recon(request: ReconRequest):
     print(f"=== Recon request received for target: {request.target} ===")
     
     try:
+        # Run all recon modules concurrently
+        subdomains_task = find_subdomains(request.target)
+        wayback_task = get_wayback_urls(request.target)
+        otx_task = get_otx_urls(request.target)
+        live_hosts_task = check_live_hosts([request.target])
+        parameters_task = find_parameters(request.target)
+        directories_task = find_directories(request.target)
+        tech_task = detect_tech(request.target)
+        
+        # Gather all results
+        subdomains, wayback_urls, otx_urls, live_hosts, parameters, directories, technologies = await asyncio.gather(
+            subdomains_task,
+            wayback_task,
+            otx_task,
+            live_hosts_task,
+            parameters_task,
+            directories_task,
+            tech_task,
+            return_exceptions=True
+        )
+        
+        # Handle any exceptions
         results = {
             "target": request.target,
             "timestamp": datetime.now().isoformat(),
-            "subdomains": await find_subdomains(request.target),
-            "urls": await get_wayback_urls(request.target),
-            "otx_urls": await get_otx_urls(request.target),
-            "live_hosts": await check_live_hosts([request.target]),
-            "parameters": await find_parameters(request.target),
-            "directories": await find_directories(request.target),
-            "technologies": await detect_tech(request.target)
+            "subdomains": subdomains if not isinstance(subdomains, Exception) else [],
+            "urls": wayback_urls if not isinstance(wayback_urls, Exception) else [],
+            "otx_urls": otx_urls if not isinstance(otx_urls, Exception) else [],
+            "live_hosts": live_hosts if not isinstance(live_hosts, Exception) else [],
+            "parameters": parameters if not isinstance(parameters, Exception) else [],
+            "directories": directories if not isinstance(directories, Exception) else [],
+            "technologies": technologies if not isinstance(technologies, Exception) else []
         }
         
         # Store results
@@ -150,6 +174,12 @@ async def run_recon(request: ReconRequest):
         scan_results[scan_id] = results
         
         print(f"=== Recon completed for {request.target} ===")
+        print(f"   Subdomains: {len(results['subdomains'])}")
+        print(f"   URLs: {len(results['urls'])}")
+        print(f"   Parameters: {len(results['parameters'])}")
+        print(f"   Directories: {len(results['directories'])}")
+        print(f"   Technologies: {len(results['technologies'])}")
+        
         return JSONResponse(content=results)
         
     except Exception as e:
@@ -158,7 +188,7 @@ async def run_recon(request: ReconRequest):
         traceback.print_exc()
         return JSONResponse(
             status_code=500,
-            content={"error": str(e)}
+            content={"error": str(e), "detail": "Reconnaissance failed"}
         )
 
 @app.post("/scan")
