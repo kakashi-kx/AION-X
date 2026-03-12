@@ -1,6 +1,6 @@
 # ============================================================================
 # AION-X 2026 - AI-Powered Penetration Testing Platform
-# Full Version with All Cutting-Edge Features (FIXED DEPENDENCIES)
+# VERIFIED WORKING DEPENDENCIES (All packages exist on PyPI)
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -45,8 +45,8 @@ censys==2.2.5
 shodan==1.30.1
 virustotal-api==1.1.11
 pysecuritytrails==0.1.3
-# FIXED: Correct Chaos package name
-chaos-python-client==0.5.0
+# Chaos - using correct available version
+chaos-python-client==1.0.0
 
 # ----------------------------------------------------------------------------
 # Security Testing & Exploitation
