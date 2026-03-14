@@ -2,7 +2,7 @@
 CI/CD Pipeline Security Scanner
 Detects vulnerabilities in GitHub Actions, GitLab CI, Jenkins
 """
-import Optional
+from typing import Optional
 import re
 import yaml
 import json
