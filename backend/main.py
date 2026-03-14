@@ -16,6 +16,7 @@ import json
 from datetime import datetime
 import asyncio
 import inspect
+import aiohttp
 
 # ==================== MODULE IMPORTS ====================
 
@@ -44,9 +45,9 @@ except ImportError as e:
     async def find_directories(target): return ["/admin"]
     async def detect_tech(target): return ["nginx"]
 
-# Advanced AI Modules (New)
+# Advanced AI Modules
 try:
-    from modules.ai.bugreaper import BugReaperEngine
+    from modules.ai.bugreaper import BugReaperEngine, VulnerabilityClass
     from modules.api.owasp_api_scanner import OWASPAPIScanner
     from modules.devsecops.cicd_scanner import CICDScanner
     from modules.integrations.bugbounty_platforms import AutoSubmitter
@@ -57,12 +58,23 @@ except ImportError as e:
     print(f"⚠️ Warning: Advanced AI modules could not be imported: {e}")
     AI_MODULES_LOADED = False
 
+# ==================== NEW AI FEATURE IMPORTS ====================
+try:
+    from modules.ai.ai_payload_generator import AIPayloadGenerator
+    from modules.ai.ai_exploit_validator import AIExploitValidator
+    from modules.ai.ai_exploit_chain import AIExploitChainer, AttackPath
+    ADVANCED_AI_LOADED = True
+    print("✅ Advanced AI exploit modules loaded successfully")
+except ImportError as e:
+    print(f"⚠️ Warning: Advanced AI exploit modules could not be imported: {e}")
+    ADVANCED_AI_LOADED = False
+
 # ==================== FASTAPI SETUP ====================
 
 app = FastAPI(
     title="AION-X AI Penetration Testing Platform",
-    version="3.0.0",
-    description="Complete AI-Powered Security Testing Platform with Recon, API Testing, CI/CD Scanning, and Bug Bounty Integration"
+    version="4.0.0",
+    description="Complete AI-Powered Security Platform with Exploit Generation & Chaining"
 )
 
 # Configure CORS
@@ -129,6 +141,23 @@ class BugBountySubmission(BaseModel):
     platform: str
     program_id: str
 
+# ==================== NEW AI MODELS ====================
+
+class PayloadGenerationRequest(BaseModel):
+    vuln_type: str = "sqli"
+    count: int = 10
+    context: Dict[str, Any] = {}
+
+class ExploitValidationRequest(BaseModel):
+    vuln_type: str
+    target: str
+    url: str
+    param: str
+    payload: str
+
+class AttackPathRequest(BaseModel):
+    vulnerabilities: List[Dict[str, Any]]
+
 class ScanStatus(BaseModel):
     scan_id: str
     status: str
@@ -147,7 +176,7 @@ scan_results = {}
 async def root():
     return {
         "message": "AION-X AI Penetration Testing Platform",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "status": "ready",
         "features": {
             "reconnaissance": RECON_MODULES_LOADED,
@@ -155,7 +184,10 @@ async def root():
             "api_scanner": AI_MODULES_LOADED,
             "cicd_scanner": AI_MODULES_LOADED,
             "reporting": AI_MODULES_LOADED,
-            "bugbounty_integration": AI_MODULES_LOADED
+            "bugbounty_integration": AI_MODULES_LOADED,
+            "ai_payload_generator": ADVANCED_AI_LOADED,
+            "ai_exploit_validator": ADVANCED_AI_LOADED,
+            "ai_exploit_chaining": ADVANCED_AI_LOADED
         }
     }
 
@@ -194,7 +226,7 @@ async def get_stats():
         "scan_counts": [0, 0, 0, 0, 0, 0, 0]
     }
 
-# ==================== RECONNAISSANCE ENDPOINT (WORKING) ====================
+# ==================== RECONNAISSANCE ENDPOINT ====================
 
 @app.post("/recon")
 async def run_recon(request: ReconRequest):
@@ -450,7 +482,115 @@ async def submit_to_bugbounty(request: BugBountySubmission):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# ==================== COMPLETE SCAN ENDPOINT (ALL FEATURES) ====================
+# ==================== NEW AI PAYLOAD GENERATOR ENDPOINT ====================
+
+@app.post("/ai/generate-payloads")
+async def generate_payloads(request: PayloadGenerationRequest):
+    """Generate AI-powered payloads for vulnerability testing"""
+    print(f"🎯 Generating {request.count} {request.vuln_type} payloads")
+    
+    if not ADVANCED_AI_LOADED:
+        return JSONResponse(status_code=501, content={"error": "Advanced AI modules not loaded"})
+    
+    try:
+        generator = AIPayloadGenerator()
+        payloads = generator.generate_payloads(
+            request.vuln_type, 
+            request.count, 
+            request.context
+        )
+        
+        return JSONResponse(content={
+            "vuln_type": request.vuln_type,
+            "count": len(payloads),
+            "payloads": payloads,
+            "context_used": request.context,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ==================== NEW AI EXPLOIT VALIDATOR ENDPOINT ====================
+
+@app.post("/ai/validate-exploit")
+async def validate_exploit(request: ExploitValidationRequest):
+    """Validate vulnerability with multiple AI-powered methods"""
+    print(f"🔍 Validating {request.vuln_type} at {request.url}")
+    
+    if not ADVANCED_AI_LOADED:
+        return JSONResponse(status_code=501, content={"error": "Advanced AI modules not loaded"})
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            validator = AIExploitValidator(request.target, session)
+            
+            if request.vuln_type.lower() in ['sqli', 'sql_injection', 'sql']:
+                result = await validator.validate_sqli(request.url, request.param, request.payload)
+            elif request.vuln_type.lower() in ['xss', 'cross-site']:
+                result = await validator.validate_xss(request.url, request.param, request.payload)
+            elif request.vuln_type.lower() in ['cmd', 'command', 'command_injection']:
+                result = await validator.validate_command_injection(request.url, request.param, request.payload)
+            else:
+                return JSONResponse(status_code=400, content={"error": f"Unsupported vulnerability type: {request.vuln_type}"})
+            
+            # Convert dataclass to dict for JSON response
+            result_dict = {
+                "vulnerability_name": result.vulnerability_name,
+                "confirmed": result.confirmed,
+                "confidence": result.confidence,
+                "methods_used": result.methods_used,
+                "proof": result.proof,
+                "impact": result.impact,
+                "reproducibility": result.reproducibility,
+                "requires_interaction": result.requires_interaction
+            }
+            
+            return JSONResponse(content=result_dict)
+        
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ==================== NEW AI ATTACK PATH FINDER ENDPOINT ====================
+
+@app.post("/ai/find-attack-paths")
+async def find_attack_paths(request: AttackPathRequest):
+    """Find attack chains from discovered vulnerabilities"""
+    print(f"🔗 Finding attack paths from {len(request.vulnerabilities)} vulnerabilities")
+    
+    if not ADVANCED_AI_LOADED:
+        return JSONResponse(status_code=501, content={"error": "Advanced AI modules not loaded"})
+    
+    try:
+        chainer = AIExploitChainer()
+        attack_paths = chainer.find_attack_paths(request.vulnerabilities)
+        
+        results = []
+        for path in attack_paths:
+            plan = chainer.generate_exploit_plan(path)
+            results.append({
+                "name": path.name,
+                "severity": path.severity,
+                "steps": path.steps,
+                "impact": path.impact,
+                "likelihood": path.likelihood,
+                "prerequisites": path.prerequisites,
+                "exploit_plan": plan
+            })
+        
+        return JSONResponse(content={
+            "total_paths": len(results),
+            "critical_paths": sum(1 for r in results if r['severity'] == 'Critical'),
+            "high_paths": sum(1 for r in results if r['severity'] == 'High'),
+            "medium_paths": sum(1 for r in results if r['severity'] == 'Medium'),
+            "paths": results,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ==================== COMPLETE SCAN ENDPOINT ====================
 
 @app.post("/complete-scan")
 async def complete_security_assessment(request: ReconRequest):
@@ -508,9 +648,42 @@ async def complete_security_assessment(request: ReconRequest):
                     "findings": api_findings_dict
                 }
         
-        # Phase 4: Generate Report
-        print("\n📊 Phase 4: Generating Report...")
-        active_scans[scan_id]["progress"] = 80
+        # Phase 4: AI Exploit Chaining
+        if ADVANCED_AI_LOADED and AI_MODULES_LOADED:
+            print("\n🔗 Phase 4: AI Exploit Chaining...")
+            active_scans[scan_id]["progress"] = 70
+            active_scans[scan_id]["status"] = "Finding attack paths..."
+            
+            # Collect all vulnerabilities
+            all_vulns = []
+            if "ai_analysis" in results["phases"]:
+                all_vulns.extend(results["phases"]["ai_analysis"]["findings"])
+            if "api_security" in results["phases"]:
+                all_vulns.extend(results["phases"]["api_security"]["findings"])
+            
+            chainer = AIExploitChainer()
+            attack_paths = chainer.find_attack_paths(all_vulns)
+            
+            paths_result = []
+            for path in attack_paths:
+                plan = chainer.generate_exploit_plan(path)
+                paths_result.append({
+                    "name": path.name,
+                    "severity": path.severity,
+                    "steps": path.steps,
+                    "impact": path.impact,
+                    "likelihood": path.likelihood
+                })
+            
+            results["phases"]["attack_paths"] = {
+                "total_paths": len(paths_result),
+                "critical_paths": sum(1 for p in paths_result if p['severity'] == 'Critical'),
+                "paths": paths_result
+            }
+        
+        # Phase 5: Generate Report
+        print("\n📊 Phase 5: Generating Report...")
+        active_scans[scan_id]["progress"] = 90
         active_scans[scan_id]["status"] = "Generating report..."
         
         if AI_MODULES_LOADED:
@@ -633,7 +806,10 @@ async def health_check():
             "api_scanner": AI_MODULES_LOADED,
             "cicd_scanner": AI_MODULES_LOADED,
             "reporting": AI_MODULES_LOADED,
-            "bugbounty": AI_MODULES_LOADED
+            "bugbounty": AI_MODULES_LOADED,
+            "ai_payload_generator": ADVANCED_AI_LOADED,
+            "ai_exploit_validator": ADVANCED_AI_LOADED,
+            "ai_exploit_chaining": ADVANCED_AI_LOADED
         },
         "active_scans": len(active_scans),
         "completed_scans": len(scan_results)
@@ -658,6 +834,11 @@ async def list_features():
             "cicd_scanner": AI_MODULES_LOADED,
             "ai_report_generator": AI_MODULES_LOADED,
             "bugbounty_integration": AI_MODULES_LOADED
+        },
+        "advanced_ai": {
+            "ai_payload_generator": ADVANCED_AI_LOADED,
+            "ai_exploit_validator": ADVANCED_AI_LOADED,
+            "ai_exploit_chaining": ADVANCED_AI_LOADED
         }
     }
 
@@ -666,11 +847,12 @@ async def list_features():
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "="*60)
-    print("🚀 AION-X 3.0 - Complete AI Security Platform")
+    print("🚀 AION-X 4.0 - Complete AI Security Platform")
     print("="*60)
     print(f"📁 Project root: {project_root}")
     print(f"✅ Recon modules: {RECON_MODULES_LOADED}")
     print(f"✅ AI modules: {AI_MODULES_LOADED}")
+    print(f"✅ Advanced AI: {ADVANCED_AI_LOADED}")
     print(f"🌐 API Documentation: http://localhost:8000/docs")
     print(f"🎯 Frontend: http://localhost:3000")
     print("="*60 + "\n")
