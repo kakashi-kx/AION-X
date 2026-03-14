@@ -70,35 +70,35 @@ class BugReaperEngine:
     async def scan_all(self) -> List[Vulnerability]:
         """Run all 18 vulnerability checks"""
         tasks = [
-            self.check_idor(),
-            self.check_auth_bypass(),
-            self.check_cors(),
-            self.check_csrf(),
-            self.check_sqli(),
-            self.check_nosqli(),
-            self.check_xxe(),
-            self.check_ssrf(),
-            self.check_ssti(),
-            self.check_lfi(),
-            self.check_graphql_bola(),
-            self.check_prototype_pollution(),
-            self.check_request_smuggling(),
-            self.check_subdomain_takeover(),
-            self.check_rce(),
-            self.check_business_logic(),
-            self.check_xss(),
-            self.check_open_redirect()
-        ]
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        for result in results:
-            if isinstance(result, Exception):
-                print(f"Error in scan: {result}")
-            elif result:
-                self.findings.extend(result)
-                
-        return self.findings
+        self.check_idor(),
+        self.check_auth_bypass(),
+        self.check_cors(),
+        self.check_csrf(),
+        self.check_sqli(),
+        self.check_nosqli(),
+        self.check_xxe(),
+        self.check_ssrf(),
+        self.check_ssti(),
+        self.check_lfi(),
+        self.check_graphql_bola(),
+        self.check_prototype_pollution(),
+        self.check_request_smuggling(),
+        self.check_subdomain_takeover(),
+        self.check_rce(),
+        self.check_business_logic(),
+        self.check_xss(),
+        self.check_open_redirect()
+    ]
+    
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    for result in results:
+        if isinstance(result, Exception):
+            print(f"Error in scan: {result}")
+        elif result:
+            self.findings.extend(result)
+            
+    return self.findings
     
     async def check_idor(self) -> List[Vulnerability]:
         """IDOR/BOLA detection with AI pattern matching"""
